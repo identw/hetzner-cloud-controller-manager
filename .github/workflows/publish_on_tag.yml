@@ -20,5 +20,5 @@ jobs:
         run: |
           docker version
           docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD"
-          docker build -t hetznercloud/hcloud-cloud-controller-manager:$RELEASE_VERSION .
-          docker push hetznercloud/hcloud-cloud-controller-manager:$RELEASE_VERSION
+          docker build -t identw/hetzner-cloud-controller-manager::$RELEASE_VERSION .
+          docker push identw/hetzner-cloud-controller-manager:$RELEASE_VERSION

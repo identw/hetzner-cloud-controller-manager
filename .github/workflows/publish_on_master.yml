@@ -4,7 +4,7 @@ on:
     branches:
       - master
 jobs:
-  test:
+  docker-build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
@@ -13,10 +13,10 @@ jobs:
       - uses: actions/checkout@master
       - name: Publish latest tag to registry
         env:
-            DOCKER_USER: ${{ secrets.DOCKER_USER }}
-            DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           docker version
           docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD"
-          docker build -t hetznercloud/hcloud-cloud-controller-manager:latest .
-          docker push hetznercloud/hcloud-cloud-controller-manager:latest
+          docker build -t identw/hetzner-cloud-controller-manager:latest .
+          docker push identw/hetzner-cloud-controller-manager:latest

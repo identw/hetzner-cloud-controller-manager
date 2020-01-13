@@ -22,21 +22,29 @@ import (
 	"os"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	hrobot "github.com/nl2go/hrobot-go"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller"
 )
 
 const (
+	hrobotUserENVVar     = "HROBOT_USER"
+	hrobotPassENVVar     = "HROBOT_PASS"
 	hcloudTokenENVVar    = "HCLOUD_TOKEN"
 	hcloudEndpointENVVar = "HCLOUD_ENDPOINT"
 	hcloudNetworkENVVar  = "HCLOUD_NETWORK"
 	nodeNameENVVar       = "NODE_NAME"
-	providerName         = "hcloud"
-	providerVersion      = "v1.5.0"
+	providerName         = "hetzner"
+	providerVersion      = "v0.0.1"
 )
 
+type commonClient struct {
+	Hrobot hrobot.RobotClient
+	Hcloud *hcloud.Client
+}
+
 type cloud struct {
-	client    *hcloud.Client
+	client    commonClient
 	instances cloudprovider.Instances
 	zones     cloudprovider.Zones
 	routes    cloudprovider.Routes
@@ -62,7 +70,20 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	if endpoint := os.Getenv(hcloudEndpointENVVar); endpoint != "" {
 		opts = append(opts, hcloud.WithEndpoint(endpoint))
 	}
-	client := hcloud.NewClient(opts...)
+
+	// hetzner robot get auth from env
+	user := os.Getenv(hrobotUserENVVar)
+	if user == "" {
+		return nil, fmt.Errorf("environment variable %q is required", hrobotUserENVVar)
+	}
+	pass := os.Getenv(hrobotPassENVVar)
+	if pass == "" {
+		return nil, fmt.Errorf("environment variable %q is required", hrobotPassENVVar)
+	}
+
+	var client commonClient
+	client.Hcloud = hcloud.NewClient(opts...)
+	client.Hrobot = hrobot.NewBasicAuthClient(user, pass)
 
 	return &cloud{
 		client:    client,
@@ -92,15 +113,7 @@ func (c *cloud) Clusters() (cloudprovider.Clusters, bool) {
 }
 
 func (c *cloud) Routes() (cloudprovider.Routes, bool) {
-	if len(c.network) > 0 {
-		r, err := newRoutes(c.client, c.network)
-		if err != nil {
-			return nil, false
-		}
-		return r, true
-	}
-	return nil, false // If no network is configured, disable the routes part
-
+	return nil, false
 }
 
 func (c *cloud) ProviderName() string {

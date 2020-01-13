@@ -17,6 +17,8 @@ limitations under the License.
 package hcloud
 
 import (
+	// "fmt"
+	// "os"
 	"context"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -25,17 +27,18 @@ import (
 )
 
 type zones struct {
-	client   *hcloud.Client
+	client commonClient
 	nodeName string // name of the node the programm is running on
 }
 
-func newZones(client *hcloud.Client, nodeName string) cloudprovider.Zones {
+func newZones(client commonClient, nodeName string) cloudprovider.Zones {
 	return zones{client, nodeName}
 }
 
 func (z zones) GetZone(ctx context.Context) (zone cloudprovider.Zone, err error) {
 	var server *hcloud.Server
 	server, err = getServerByName(ctx, z.client, z.nodeName)
+	
 	if err != nil {
 		return
 	}

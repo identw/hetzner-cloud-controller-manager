@@ -13,6 +13,7 @@ require (
 	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
+	github.com/creack/pty v1.1.9 // indirect
 	github.com/dgrijalva/jwt-go v3.1.0+incompatible // indirect
 	github.com/docker/distribution v0.0.0-20170726174610-edc3ab29cdff // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
@@ -39,10 +40,13 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/json-iterator/go v1.1.5 // indirect
+	github.com/kr/pretty v0.2.0 // indirect
+	github.com/kr/pty v1.1.8 // indirect
 	github.com/mailru/easyjson v0.0.0-20171120080333-32fa128f234d // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/nl2go/hrobot-go v0.1.3
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
