@@ -165,7 +165,11 @@ systemctl daemon-reload
 systemctl restart kubelet
 ```
 
-Then add **taint** to this node:
+Then add **taint** to this node. If there are no **taints** on the node, then do:
+```bash
+kubectl patch node kube-node-example1 --type='json' -p='[{"op":"add","path":"/spec/taints","value": [{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized"}]}]'
+```
+If the node already has some **taints** then:
 ```bash
 kubectl patch node kube-node-example1 --type='json' -p='[{"op":"add","path":"/spec/taints/-","value": {"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized"}}]'
 ```

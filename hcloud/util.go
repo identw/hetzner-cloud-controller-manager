@@ -36,11 +36,11 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	}
 	
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hcloud", name)
+		fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hcloud\n", name)
 		// try hrobot find
 		server, err = hrobotGetServerByName(c, name)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hrobot", name)
+			fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hrobot\n", name)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -55,10 +55,10 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 		return
 	}
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "Error: Not found serverID: %v, in hcloud", id)
+		fmt.Fprintf(os.Stderr, "Error: Not found serverID: %v, in hcloud\n", id)
 		server, err = hrobotGetServerByID(c, id)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "not found serverID: %v, in hrobot", id)
+			fmt.Fprintf(os.Stderr, "not found serverID: %v, in hrobot\n", id)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
