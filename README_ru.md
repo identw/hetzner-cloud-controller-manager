@@ -124,7 +124,7 @@ stringData:
 ```bash
 kubectl apply -f hetzner-cloud-controller-manager-secret.yaml
 ```
-Или сделайте тоже самое через интерактивную команду создания секрета в kubectl:
+Или сделайте тоже самое однострочной командой:
 ```bash
 kubectl create secret generic hetzner-cloud-controller-manager --from-literal=token=pYMfn43zP42ET6N2GtoWX35CUGspyfDA2zbbP57atHKpsFm7YUKbAdcTXFvSyu --from-literal=robot_user='#as+BVacIALV' --from-literal=robot_password=XRmL7hjAMU3RVsXJ4qLpCExiYpcKFJKzMKCiPjzQpJ33RP3b5uHY5DhqhF44YarY
 ```
