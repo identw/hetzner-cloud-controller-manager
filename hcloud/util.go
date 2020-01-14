@@ -19,6 +19,7 @@ package hcloud
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"net"
@@ -35,9 +36,11 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	}
 	
 	if server == nil {
+		fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hcloud", name)
 		// try hrobot find
 		server, err = hrobotGetServerByName(c, name)
-		if err != nil {
+		if server == nil {
+			fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hrobot", name)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -52,8 +55,10 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 		return
 	}
 	if server == nil {
+		fmt.Fprintf(os.Stderr, "Error: Not found serverID: %v, in hcloud", id)
 		server, err = hrobotGetServerByID(c, id)
-		if err != nil {
+		if server == nil {
+			fmt.Fprintf(os.Stderr, "not found serverID: %v, in hrobot", id)
 			err = cloudprovider.InstanceNotFound
 			return
 		}

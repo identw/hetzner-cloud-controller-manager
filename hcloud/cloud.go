@@ -35,7 +35,7 @@ const (
 	hcloudNetworkENVVar  = "HCLOUD_NETWORK"
 	nodeNameENVVar       = "NODE_NAME"
 	providerName         = "hetzner"
-	providerVersion      = "v0.0.1"
+	providerVersion      = "v0.0.2"
 )
 
 type commonClient struct {

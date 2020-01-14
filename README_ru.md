@@ -131,7 +131,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f deploy/v0.0.1-deployment.yaml
+kubectl apply -f deploy/v0.0.2-deployment.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:

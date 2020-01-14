@@ -134,7 +134,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Deployment controller:
 ```bash
-kubectl apply -f deploy/v0.0.1-deployment.yaml
+kubectl apply -f deploy/v0.0.2-deployment.yaml
 ```
 
 Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
