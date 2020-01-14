@@ -148,7 +148,7 @@ Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
 
 Далее добавляете ноду как обычно. Напирмер если это **kubeadm**, то:
 ```bash
-kubeadm join kube-api-serostver-h:6443 --token token  --discovery-token-ca-cert-hash sha256:hash 
+kubeadm join kube-api-server:6443 --token token  --discovery-token-ca-cert-hash sha256:hash 
 ```
 
 ## Инициализация уже существующих нод в кластере

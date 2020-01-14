@@ -149,7 +149,7 @@ And reload config systemd:
 
 Next, add the node as usual. For example, if it is **kubeadm**, then:
 ```bash
-kubeadm join kube-api-serostver-h:6443 --token token --discovery-token-ca-cert-hash sha256:hash 
+kubeadm join kube-api-server:6443 --token token --discovery-token-ca-cert-hash sha256:hash 
 ```
 
 ## Initializing existing nodes in a cluster
