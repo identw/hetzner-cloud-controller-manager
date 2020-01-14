@@ -4,7 +4,7 @@ on:
     tags:
       - 'v*.*.*'
 jobs:
-  test:
+  docker-build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v1
@@ -20,5 +20,5 @@ jobs:
         run: |
           docker version
           docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD"
-          docker build -t identw/hetzner-cloud-controller-manager::$RELEASE_VERSION .
+          docker build -t identw/hetzner-cloud-controller-manager:$RELEASE_VERSION .
           docker push identw/hetzner-cloud-controller-manager:$RELEASE_VERSION

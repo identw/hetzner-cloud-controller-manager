@@ -1,13 +1,14 @@
-# Kubernetes Cloud Controller Manager для Hetzner Cloud и Hetzner Dedicated
-Данный контроллер основан на [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager) но помимо Hetzner Cloud поддерживает выделенные сервера [Hetzner](https://www.hetzner.com/dedicated-rootserver).
+# Kubernetes Cloud Controller Manager for Hetzner Cloud and Hetzner Dedicated
+This controller is based on [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager), but also support [Hetzner dedicated servers](https://www.hetzner.com/dedicated-rootserver).
 
-Он добавляет на ноды метки: `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`, устанавливет внешний ip в статус, а также удаляет ноды из **kubernetes** кластера, если они были удалены из Hetzner Cloud или из Hetzner Robot.
+It adds the following labels to nodes: `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`. And sets the external ipv4 address and deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers).
 
-Больше информации о cloud controller manager вы можете найти в [документации kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+You can find more information about the cloud controller manager in the [kuberentes documentation](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/).
 
-**На заметку:** в отличие от оригинального [контроллера](https://github.com/hetznercloud/hcloud-cloud-controller-manager), этот контроллер не поддерживает [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), поскольку невозможно с помощью них настроить сеть между dedicated и облачным серверами. Для сети в вашем кластере состоящим из облачных и dedicated серверов следует использовать какой-нибудь **cni** плагин, например [kube-router](https://github.com/cloudnativelabs/kube-router) с включенным `--enable-overlay`. Если вам требуются [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), то вам стоит использовать оригинальный [контроллер](https://github.com/hetznercloud/hcloud-cloud-controller-manager) и отказаться от использования dedicated серверов в вашем кластере.
+**Note:** Unlike the original [controller]((https://github.com/hetznercloud/hcloud-cloud-controller-manager)), this controller does not support [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic), because using them it is impossible to build a network between the cloud and dedicated servers. For a network in your cluster consisting of dedicated and cloud servers, you should  use some kind of **cni** plugin, example [kube-router](https://github.com/cloudnativelabs/kube-router) with option `--enable-overlay`. If you need [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic) then you should use the original [controller](https://github.com/hetznercloud/hcloud-cloud-controller-manager) and refuse to use dedicated servers in your cluster.
 
-# Примеры
+
+# Example
 ```bash
 $ kubectl get node -L beta.kubernetes.io/instance-type -L failure-domain.beta.kubernetes.io/region -L failure-domain.beta.kubernetes.io/zone
 NAME               STATUS   ROLES    AGE     VERSION   INSTANCE-TYPE   REGION   ZONE
@@ -24,7 +25,7 @@ kube-worker102-3   Ready    <none>   24m     v1.15.3   <none>        78.47.156.1
 kube-worker102-4   Ready    <none>   2d18h   v1.15.3   <none>        138.205.17.11    Ubuntu 18.04.3 LTS   4.18.0-25-generic   docker://18.9.8
 ```
 
-Dedicated сервер:
+Dedicated server:
 ```yaml
 apiVersion: v1
 kind: Node
@@ -63,7 +64,8 @@ status:
     pods: "110"
 
 ```
-Облачный сервер:
+
+Cloud server:
 ```yaml
 apiVersion: v1
 kind: Node
@@ -103,14 +105,14 @@ status:
     pods: "110"
 ```
 
-# Деплой
-Вам нужно создать токен для доступа к API Hetzner Cloud и к API Hetzner Robot. Для этого следуйте следующим инструкциям:
+# Deployment
+You need to create a token to access the API Hetzner Cloud and API Hetzner Robot. To do this, follow the instructions below:
  * https://docs.hetzner.cloud/#overview-getting-started
  * https://robot.your-server.de/doc/webservice/en.html#preface
 
-Получив токен и доступы, создайте файл с секретами (`hetzner-cloud-controller-manager-secret.yaml`):
-```yaml
-apiVersion: v1
+ After receiving the token and accesses, create a file with secrets `hetzner-cloud-controller-manager-secret.yaml`):
+ ```yaml
+ apiVersion: v1
 kind: Secret
 metadata:
   name: hetzner-cloud-controller-manager
@@ -119,40 +121,39 @@ stringData:
   robot_password: XRmL7hjAMU3RVsXJ4qLpCExiYpcKFJKzMKCiPjzQpJ33RP3b5uHY5DhqhF44YarY #robot password
   robot_user: '#as+BVacIALV' # robot user
   token: pYMfn43zP42ET6N2GtoWX35CUGspyfDA2zbbP57atHKpsFm7YUKbAdcTXFvSyu # hcloud token
-```
-И примените его:
+ ```
+
+And apply it:
 ```bash
 kubectl apply -f hetzner-cloud-controller-manager-secret.yaml
 ```
-Или сделайте тоже самое через интерактивную команду создания секрета в kubectl:
+Or do the same through the interactive secret command in kubectl:
 ```bash
 kubectl create secret generic hetzner-cloud-controller-manager --from-literal=token=pYMfn43zP42ET6N2GtoWX35CUGspyfDA2zbbP57atHKpsFm7YUKbAdcTXFvSyu --from-literal=robot_user='#as+BVacIALV' --from-literal=robot_password=XRmL7hjAMU3RVsXJ4qLpCExiYpcKFJKzMKCiPjzQpJ33RP3b5uHY5DhqhF44YarY
 ```
 
-Деплой контроллера:
+Deployment controller:
 ```bash
 kubectl apply -f deploy/v0.0.1-deployment.yaml
 ```
 
-Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
-
+Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
 ```
 [Service]
 Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"
 ```
-
- И перегрузите systemctl:
+And reload config systemd:
  ```bash
  systemctl daemon-reload
  ```
 
-Далее добавляете ноду как обычно. Напирмер если это **kubeadm**, то:
+Next, add the node as usual. For example, if it is **kubeadm**, then:
 ```bash
-kubeadm join kube-api-serostver-h:6443 --token token  --discovery-token-ca-cert-hash sha256:hash 
+kubeadm join kube-api-serostver-h:6443 --token token --discovery-token-ca-cert-hash sha256:hash 
 ```
 
-## Инициализация уже существующих нод в кластере
-Если у вас до деплоя контроллера уже были ноды в кластере. То вы можете их переинициализировать. Для этого достаточно запустить на них **kubelet** c `--cloud-provider=external` и затем вручную добавить **taint** с ключем `node.cloudprovider.kubernetes.io/uninitialized` и эффектом `NoSchedule`.
+## Initializing existing nodes in a cluster
+If you already had nodes in the cluster before the controller deployment, then you can reinitialize them. To do this, just run **kubelet** on them with the option `--cloud-provider=external` and then manually add **taint** with the key` node.cloudprovider.kubernetes.io/uninitialized` and the effect of `NoSchedule`.
 
 
 ```bash
@@ -164,14 +165,13 @@ systemctl daemon-reload
 systemctl restart kubelet
 ```
 
-Затем добавьте **taint** на эту ноду
+Then add **taint** to this node:
 ```bash
 kubectl patch node kube-node-example1 --type='json' -p='[{"op":"add","path":"/spec/taints/-","value": {"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized"}}]'
 ```
 
-Контроллер обнаружит этот **taint**, иницализирует ноду и удалит **taint**.
+The controller will detect this **taint**, initialize the node, and delete **taint**.
 
-
-# Лицензия
+# License
 
 Apache License, Version 2.0
