@@ -80,7 +80,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0-20180718013825-06dfdaae5c2b // indirect
 	k8s.io/apimachinery v0.0.0-20180621070125-103fd098999d
 	k8s.io/apiserver v0.0.0-20180718002855-8b122ec9e3bb
-	k8s.io/client-go v2.0.0-alpha.0.0.20180718001006-59698c7d9724+incompatible // indirect
+	k8s.io/client-go v2.0.0-alpha.0.0.20180718001006-59698c7d9724+incompatible
 	k8s.io/kube-openapi v0.0.0-20181106182614-a9a16210091c // indirect
 	k8s.io/kubernetes v1.11.1
 )

@@ -1,7 +1,11 @@
 # Kubernetes Cloud Controller Manager для Hetzner Cloud и Hetzner Dedicated
 Данный контроллер основан на [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager) но помимо Hetzner Cloud поддерживает выделенные сервера [Hetzner](https://www.hetzner.com/dedicated-rootserver).
 
-Он добавляет на ноды метки: `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`, устанавливет внешний ip в статус, а также удаляет ноды из **kubernetes** кластера, если они были удалены из Hetzner Cloud или из Hetzner Robot.
+Функции:
+ * добавялет метки `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`
+ * устанавливет внешний ip в status.addresses
+ * удаляет ноды из kubernetes кластера если они были удалены из Hetzner Cloud или из Hetzner Robot
+ * позволяет исключить удаление нод, которые принадлежат другим провайдерам (kubelet на этих нодах следует запускать БЕЗ опции `--cloud-provider=external`). Смотри раздел [Исключение нод](#исключение-нод)
 
 Больше информации о cloud controller manager вы можете найти в [документации kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
 
@@ -15,6 +19,8 @@ kube-master102-1   Ready    master   9d      v1.15.3   cx21            nbg1     
 kube-worker102-1   Ready    <none>   3m21s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
 kube-worker102-3   Ready    <none>   3m37s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
 kube-worker102-4   Ready    <none>   2d18h   v1.15.3   EX41S-SSD       fsn1     fsn1-dc8 # <-- dedicated server
+kube-worker102-101 Ready    <none>   17m     v1.15.3                                     # <-- server from another provider                      
+
 
 $ kubectl get node -o wide
 NAME               STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
@@ -22,6 +28,7 @@ kube-master102-1   Ready    master   9d      v1.15.3   <none>        78.47.171.2
 kube-worker102-1   Ready    <none>   24m     v1.15.3   <none>        78.47.111.15     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
 kube-worker102-3   Ready    <none>   24m     v1.15.3   <none>        78.47.156.13     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
 kube-worker102-4   Ready    <none>   2d18h   v1.15.3   <none>        138.205.17.11    Ubuntu 18.04.3 LTS   4.18.0-25-generic   docker://18.9.8
+kube-worker102-101 Ready    <none>   18m     v1.15.3   11.100.135.98 <none>           Ubuntu 18.04.4 LTS   4.15.0-74-generic   docker://18.9.8
 ```
 
 Dedicated сервер:
@@ -175,6 +182,28 @@ kubectl patch node kube-node-example1 --type='json' -p='[{"op":"add","path":"/sp
 
 Контроллер обнаружит этот **taint**, иницализирует ноду и удалит **taint**.
 
+## Исключение нод
+Если вы хотите добавлять узлы в ваш кластер из других облачных/bare-metal провайдеров. То вы можете столкнутся с проблемой - узлы будут удалятся из кластера. Это можно обойти исключив данные сервера, с помощью конфигурации в JSON формате. Для этого вам достаточно добавить в секрет **hetzner-cloud-controller-manager** ключ `cloud_token` с перечислением серверов, которые требуется исключить. И добавить этот файл в опцию `--cloud-config` в деплойменте. Поддерживаются регулярные выражения. Например:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hetzner-cloud-controller-manager
+  namespace: kube-system
+stringData:
+  cloud_config: '{"exclude_servers": ["kube-worker102-201","kube-worker102-10.*"]}' # exclude servers
+  robot_password: XRmL7hjAMU3RVsXJ4qLpCExiYpcKFJKzMKCiPjzQpJ33RP3b5uHY5DhqhF44YarY  # robot password
+  robot_user: '#as+BVacIALV'                                                        # robot user
+  token: pYMfn43zP42ET6N2GtoWX35CUGspyfDA2zbbP57atHKpsFm7YUKbAdcTXFvSyu             # hcloud token
+```
+
+Очень важно на таких серверах запускать kubelet БЕЗ опции `--cloud-provider=external`.
+
+Для деплоя с исключением предусмотрен отдельный файл: 
+```bash
+kubectl apply -f deploy/v0.0.3-deployment-exclude.yaml
+```
 
 # Лицензия
 

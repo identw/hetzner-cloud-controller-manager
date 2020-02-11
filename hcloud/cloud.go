@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"encoding/json"
+	"io/ioutil"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	hrobot "github.com/nl2go/hrobot-go"
@@ -35,7 +37,7 @@ const (
 	hcloudNetworkENVVar  = "HCLOUD_NETWORK"
 	nodeNameENVVar       = "NODE_NAME"
 	providerName         = "hetzner"
-	providerVersion      = "v0.0.2"
+	providerVersion      = "v0.0.3"
 )
 
 type commonClient struct {
@@ -51,7 +53,43 @@ type cloud struct {
 	network   string
 }
 
-func newCloud(config io.Reader) (cloudprovider.Interface, error) {
+type config struct {
+	ExcludeServers []string                     `json:"exclude_servers"`
+}
+
+var (
+	cloudConfig *config
+	excludeServer = &hcloud.Server{ 
+		ID: 999999,
+		ServerType: &hcloud.ServerType{Name: "exclude"},
+		Status: hcloud.ServerStatus("running"),
+		Datacenter: &hcloud.Datacenter{
+			Location: &hcloud.Location{
+				Name: "exclude",
+			}, 
+			Name: "exclude",
+		},
+	}
+)
+
+func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
+	cfg := &config{}
+	if configFile != nil {
+        body, err := ioutil.ReadAll(configFile)
+        if err != nil {
+            return nil, err
+        }
+        err = json.Unmarshal(body, cfg)
+        if err != nil {
+            return nil, err
+        }
+	}
+
+	cloudConfig = cfg
+	if len(cloudConfig.ExcludeServers) == 0 {
+		cloudConfig.ExcludeServers = make([]string, 0, 0)
+	}
+
 	token := os.Getenv(hcloudTokenENVVar)
 	if token == "" {
 		return nil, fmt.Errorf("environment variable %q is required", hcloudTokenENVVar)
