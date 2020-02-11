@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"regexp"
 	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -29,18 +30,24 @@ import (
 )
 
 func getServerByName(ctx context.Context, c commonClient, name string) (server *hcloud.Server, err error) {
+	// Find exclude servers
+	for _, s := range cloudConfig.ExcludeServers {
+		if exclude, _ := regexp.MatchString(s, name); exclude {
+			return excludeServer, nil
+		}
+	}
+	
 	server, _, err = c.Hcloud.Server.GetByName(ctx, name)
-
 	if err != nil {
 		return
 	}
 	
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hcloud\n", name)
+		fmt.Fprintf(os.Stderr, "ERROR: Not found serverName: %v, in hcloud\n", name)
 		// try hrobot find
 		server, err = hrobotGetServerByName(c, name)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "Error: Not found serverName: %v, in hrobot\n", name)
+			fmt.Fprintf(os.Stderr, "ERROR: Not found serverName: %v, in hrobot\n", name)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -50,15 +57,20 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 }
 
 func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.Server, err error) {
+	// Find exclude servers
+	if id == excludeServer.ID {
+		return excludeServer, nil
+	}
+
 	server, _, err = c.Hcloud.Server.GetByID(ctx, id)
 	if err != nil {
 		return
 	}
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "Error: Not found serverID: %v, in hcloud\n", id)
+		fmt.Fprintf(os.Stderr, "ERROR: Not found serverID: %v, in hcloud\n", id)
 		server, err = hrobotGetServerByID(c, id)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "not found serverID: %v, in hrobot\n", id)
+			fmt.Fprintf(os.Stderr, "ERROR: Not found serverID: %v, in hrobot\n", id)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -67,15 +79,18 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 }
 
 func providerIDToServerID(providerID string) (id int, err error) {
+	if providerID == strconv.Itoa(excludeServer.ID) {
+		return excludeServer.ID, nil
+	}
 	providerPrefix := providerName + "://"
 	if !strings.HasPrefix(providerID, providerPrefix) {
-		err = fmt.Errorf("providerID should start with hcloud://: %s", providerID)
+		err = fmt.Errorf("ERROR: providerID should start with hetzner://: %s", providerID)
 		return
 	}
 
 	idString := strings.ReplaceAll(providerID, providerPrefix, "")
 	if idString == "" {
-		err = fmt.Errorf("missing server id in providerID: %s", providerID)
+		err = fmt.Errorf("ERROR: missing server id in providerID: %s", providerID)
 		return
 	}
 

@@ -19,11 +19,9 @@ package hcloud
 import (
 	"context"
 	"os"
-	"fmt"
 	"strconv"
 
 	"k8s.io/kubernetes/pkg/cloudprovider"
-
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,7 +45,11 @@ func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID st
 	if err != nil {
 		return nil, err
 	}
-	return i.nodeAddresses(ctx, server), nil
+	adresses, err := i.nodeAddresses(ctx, server)
+	if err != nil {
+		return nil, err
+	}
+	return adresses, nil
 }
 
 func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
@@ -55,7 +57,11 @@ func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) 
 	if err != nil {
 		return nil, err
 	}
-	return i.nodeAddresses(ctx, server), nil
+	adresses, err := i.nodeAddresses(ctx, server)
+	if err != nil {
+		return nil, err
+	}
+	return adresses, nil
 }
 
 func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (string, error) {
@@ -106,6 +112,10 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 		return
 	}
 
+	if id == excludeServer.ID {
+		return true, nil
+	}
+
 	var server *hcloud.Server
 	server, _, err = i.client.Hcloud.Server.GetByID(ctx, id)
 	if server == nil {
@@ -117,7 +127,7 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 	}
 	
 	exists = server != nil
-	fmt.Fprintf(os.Stdout, "DEBUG: instances.go. InstanceExistsByProviderID: server: %v, exists: %v", server, exists)
+
 	return
 }
 
@@ -126,6 +136,10 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 	id, err = providerIDToServerID(providerID)
 	if err != nil {
 		return
+	}
+
+	if id == excludeServer.ID {
+		return false, nil
 	}
 
 	var server *hcloud.Server
@@ -142,7 +156,7 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 	return
 }
 
-func (i *instances) nodeAddresses(ctx context.Context, server *hcloud.Server) []v1.NodeAddress {
+func (i *instances) nodeAddresses(ctx context.Context, server *hcloud.Server) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(
 		addresses,
@@ -164,5 +178,5 @@ func (i *instances) nodeAddresses(ctx context.Context, server *hcloud.Server) []
 
 		}
 	}
-	return addresses
+	return addresses, nil
 }

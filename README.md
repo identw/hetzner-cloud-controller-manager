@@ -1,7 +1,11 @@
 # Kubernetes Cloud Controller Manager for Hetzner Cloud and Hetzner Dedicated
 This controller is based on [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager), but also support [Hetzner dedicated servers](https://www.hetzner.com/dedicated-rootserver).
 
-It adds the following labels to nodes: `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`. And sets the external ipv4 address and deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers).
+Features:
+ * adds the following labels to nodes `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`
+ * sets the external ipv4 address to node status.addresses
+ * deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers)
+ * exclude the removal of nodes that belong to other providers (kubelet on these nodes should be run WITHOUT the `--cloud-provider=external` option). See section [Exclude nodes](#exclude-nodes)
 
 You can find more information about the cloud controller manager in the [kuberentes documentation](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/).
 
@@ -16,6 +20,7 @@ kube-master102-1   Ready    master   9d      v1.15.3   cx21            nbg1     
 kube-worker102-1   Ready    <none>   3m21s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
 kube-worker102-3   Ready    <none>   3m37s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
 kube-worker102-4   Ready    <none>   2d18h   v1.15.3   EX41S-SSD       fsn1     fsn1-dc8 # <-- dedicated server
+kube-worker102-101 Ready    <none>   17m     v1.15.3                                     # <-- server from another provider 
 
 $ kubectl get node -o wide
 NAME               STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
@@ -23,6 +28,7 @@ kube-master102-1   Ready    master   9d      v1.15.3   <none>        78.47.171.2
 kube-worker102-1   Ready    <none>   24m     v1.15.3   <none>        78.47.111.15     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
 kube-worker102-3   Ready    <none>   24m     v1.15.3   <none>        78.47.156.13     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
 kube-worker102-4   Ready    <none>   2d18h   v1.15.3   <none>        138.205.17.11    Ubuntu 18.04.3 LTS   4.18.0-25-generic   docker://18.9.8
+kube-worker102-101 Ready    <none>   18m     v1.15.3   11.100.135.98 <none>           Ubuntu 18.04.4 LTS   4.15.0-74-generic   docker://18.9.8
 ```
 
 Dedicated server:
@@ -175,6 +181,29 @@ kubectl patch node kube-node-example1 --type='json' -p='[{"op":"add","path":"/sp
 ```
 
 The controller will detect this **taint**, initialize the node, and delete **taint**.
+
+## Exclude nodes
+If you want to add nodes to your cluster from other cloud/bare-metal providers. Then you may run into a problem - the nodes will be deleted from the cluster. This can be circumvented by excluding this servers using the configuration in JSON format. To do this, you just need to add the **hetzner-cloud-controller-manager** secret to the `cloud_token` key listing the servers that you want to exclude. And add this file to the `--cloud-config` option in the deployment. Regular expressions are supported. For instance:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hetzner-cloud-controller-manager
+  namespace: kube-system
+stringData:
+  cloud_config: '{"exclude_servers": ["kube-worker102-201","kube-worker102-10.*"]}' # exclude servers
+  robot_password: XRmL7hjAMU3RVsXJ4qLpCExiYpcKFJKzMKCiPjzQpJ33RP3b5uHY5DhqhF44YarY  # robot password
+  robot_user: '#as+BVacIALV'                                                        # robot user
+  token: pYMfn43zP42ET6N2GtoWX35CUGspyfDA2zbbP57atHKpsFm7YUKbAdcTXFvSyu             # hcloud token
+```
+
+It is very important to run kubelet on such servers WITHOUT the `--cloud-provider=external` option.
+
+For deployment with exclude servers, a separate file is provided:
+```bash
+kubectl apply -f deploy/v0.0.3-deployment-exclude.yaml
+```
 
 # License
 
