@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"regexp"
-	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"k8s.io/kubernetes/pkg/cloudprovider"
@@ -43,11 +42,10 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	}
 	
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Not found serverName: %v, in hcloud\n", name)
 		// try hrobot find
-		server, err = hrobotGetServerByName(c, name)
+		server, err = hrobotGetServerByName(name)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Not found serverName: %v, in hrobot\n", name)
+			fmt.Fprintf(os.Stderr, "ERROR: Not found serverName: %v, in hcloud and hrobot\n", name)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -67,10 +65,9 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 		return
 	}
 	if server == nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Not found serverID: %v, in hcloud\n", id)
-		server, err = hrobotGetServerByID(c, id)
+		server, err = hrobotGetServerByID(id)
 		if server == nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Not found serverID: %v, in hrobot\n", id)
+			fmt.Fprintf(os.Stderr, "ERROR: Not found serverID: %v, in hcloud and hrobot\n", id)
 			err = cloudprovider.InstanceNotFound
 			return
 		}
@@ -98,22 +95,16 @@ func providerIDToServerID(providerID string) (id int, err error) {
 	return
 }
 
-func hrobotGetServerByName(c commonClient, name string) (*hcloud.Server, error) {
-	servers, err := c.Hrobot.ServerGetList()
-    if err != nil {
-        return nil, err
-	}
-	for _, s := range servers {
-		if s.ServerName == name {
-			zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
-			ip := net.ParseIP(s.ServerIP)
+func hrobotGetServerByName(name string) (*hcloud.Server, error) {
+	for _, s := range hrobotServers {
+		if s.Name == name {
 			server := &hcloud.Server{ 
-				ID: s.ServerNumber,
-				Name: s.ServerName,
-				PublicNet: hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: ip}},
-				ServerType: &hcloud.ServerType{Name: s.Product},
+				ID: s.ID,
+				Name: s.Name,
+				PublicNet: hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
+				ServerType: &hcloud.ServerType{Name: s.Type},
 				Status: hcloud.ServerStatus("running"),
-				Datacenter: &hcloud.Datacenter{ Location: &hcloud.Location{Name: zone}, Name: strings.ToLower(s.Dc) },
+				Datacenter: &hcloud.Datacenter{ Location: &hcloud.Location{Name: s.Zone}, Name: s.Region },
 			}
 			return server, nil
 		}
@@ -122,22 +113,16 @@ func hrobotGetServerByName(c commonClient, name string) (*hcloud.Server, error) 
 	return nil, nil
 }
 
-func hrobotGetServerByID(c commonClient, id int) (*hcloud.Server, error) {
-	servers, err := c.Hrobot.ServerGetList()
-    if err != nil {
-        return nil, err
-	}
-	for _, s := range servers {
-		if s.ServerNumber == id {
-			zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
-			ip := net.ParseIP(s.ServerIP)
+func hrobotGetServerByID(id int) (*hcloud.Server, error) {
+	for _, s := range hrobotServers {
+		if s.ID == id {
 			server := &hcloud.Server{ 
-				ID: s.ServerNumber,
-				Name: s.ServerName,
-				PublicNet: hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: ip}},
-				ServerType: &hcloud.ServerType{Name: s.Product},
+				ID: s.ID,
+				Name: s.Name,
+				PublicNet: hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
+				ServerType: &hcloud.ServerType{Name: s.Type},
 				Status: hcloud.ServerStatus("running"),
-				Datacenter: &hcloud.Datacenter{ Location: &hcloud.Location{Name: zone}, Name: strings.ToLower(s.Dc) },
+				Datacenter: &hcloud.Datacenter{ Location: &hcloud.Location{Name: s.Zone}, Name: s.Region },
 			}
 			return server, nil
 		}

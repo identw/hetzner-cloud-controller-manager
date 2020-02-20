@@ -205,6 +205,17 @@ For deployment with exclude servers, a separate file is provided:
 kubectl apply -f deploy/v0.0.3-deployment-exclude.yaml
 ```
 
+# Evnironment variables
+
+ * `HCLOUD_TOKEN` (**required**) - Hcloud API access token
+ * `HCLOUD_ENDPOINT`(default: `https://api.hetzner.cloud/v1`) - endpoint for Hcloud API
+ * `NODE_NAME` (**required**)  - name of the node on which the application is running (spec.nodeName)
+ * `HROBOT_USER` (**required**) - user to access the Hrobot API
+ * `HROBOT_PASS` (**required**) - password to access the Hrobot API
+ * `HROBOT_PERIOD`(default: `180`) - period in seconds with which the Hrobot API will be polled
+
+Hrobot get server have limit [200 requests per hour](https://robot.your-server.de/doc/webservice/en.html#get-server). Therefore, the application receives this information with the specified period (`HROBOT_PERIOD`) and saves it in memory. One poll every 180 seconds means 20 queries per hour.
+
 # License
 
 Apache License, Version 2.0

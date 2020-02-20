@@ -22,6 +22,10 @@ import (
 	"os"
 	"encoding/json"
 	"io/ioutil"
+	"time"
+	"strings"
+	"strconv"
+	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	hrobot "github.com/nl2go/hrobot-go"
@@ -32,12 +36,17 @@ import (
 const (
 	hrobotUserENVVar     = "HROBOT_USER"
 	hrobotPassENVVar     = "HROBOT_PASS"
+	hrobotPeriodENVVar   = "HROBOT_PERIOD"
 	hcloudTokenENVVar    = "HCLOUD_TOKEN"
 	hcloudEndpointENVVar = "HCLOUD_ENDPOINT"
 	hcloudNetworkENVVar  = "HCLOUD_NETWORK"
 	nodeNameENVVar       = "NODE_NAME"
 	providerName         = "hetzner"
-	providerVersion      = "v0.0.3"
+	providerVersion      = "v0.0.4"
+)
+
+var (
+	hrobotPeriod = 180
 )
 
 type commonClient struct {
@@ -55,6 +64,43 @@ type cloud struct {
 
 type config struct {
 	ExcludeServers []string                     `json:"exclude_servers"`
+}
+
+type HrobotServer struct {
+	ID int
+	Name string
+	Type string
+	Zone string
+	Region string
+	IP net.IP
+}
+
+var hrobotServers []HrobotServer
+
+func readHrobotServers(hrobot hrobot.RobotClient) {
+	go func() {
+			for {
+					servers, err := hrobot.ServerGetList()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "ERROR: get servers from hrobot: %v\n", err)
+					}
+					var hservers []HrobotServer
+					for _, s := range servers {
+						zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
+						server := HrobotServer{
+							ID: s.ServerNumber,
+							Name: s.ServerName,
+							Type: s.Product,
+							Zone: zone,
+							Region: strings.ToLower(s.Dc),
+							IP: net.ParseIP(s.ServerIP),
+						}
+						hservers = append(hservers, server)
+					}
+					hrobotServers = hservers
+					time.Sleep(time.Duration(hrobotPeriod) * time.Second)
+			}
+	}()
 }
 
 var (
@@ -118,10 +164,17 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 	if pass == "" {
 		return nil, fmt.Errorf("environment variable %q is required", hrobotPassENVVar)
 	}
+	period := os.Getenv(hrobotPeriodENVVar)
+	if period == "" {
+		hrobotPeriod = 180
+	} else {
+		hrobotPeriod, _ = strconv.Atoi(period)
+	}
 
 	var client commonClient
 	client.Hcloud = hcloud.NewClient(opts...)
 	client.Hrobot = hrobot.NewBasicAuthClient(user, pass)
+	readHrobotServers(client.Hrobot)
 
 	return &cloud{
 		client:    client,
