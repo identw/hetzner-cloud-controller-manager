@@ -140,7 +140,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Deployment controller:
 ```bash
-kubectl apply -f deploy/v0.0.2-deployment.yaml
+kubectl apply -f deploy/v0.0.4-deployment.yaml
 ```
 
 Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
@@ -202,7 +202,7 @@ It is very important to run kubelet on such servers WITHOUT the `--cloud-provide
 
 For deployment with exclude servers, a separate file is provided:
 ```bash
-kubectl apply -f deploy/v0.0.3-deployment-exclude.yaml
+kubectl apply -f deploy/v0.0.4-deployment-exclude.yaml
 ```
 
 # Evnironment variables
