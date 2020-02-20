@@ -119,7 +119,7 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 	var server *hcloud.Server
 	server, _, err = i.client.Hcloud.Server.GetByID(ctx, id)
 	if server == nil {
-		server, err = hrobotGetServerByID(i.client, id)
+		server, err = hrobotGetServerByID(id)
 	}
 
 	if err != nil {
@@ -145,7 +145,7 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 	var server *hcloud.Server
 	server, _, err = i.client.Hcloud.Server.GetByID(ctx, id)
 	if server == nil {
-		server, err = hrobotGetServerByID(i.client, id)
+		server, err = hrobotGetServerByID(id)
 	}
 
 	if err != nil {

@@ -205,6 +205,17 @@ stringData:
 kubectl apply -f deploy/v0.0.3-deployment-exclude.yaml
 ```
 
+# Переменные среды
+
+ * `HCLOUD_TOKEN` (**обязательный**) - токен для доступа к Hcloud API
+ * `HCLOUD_ENDPOINT`(умолчание: `https://api.hetzner.cloud/v1`) - endpoint для Hcloud API
+ * `NODE_NAME` (**обязательный**)  - имя ноды, на которой запущен под (spec.nodeName)
+ * `HROBOT_USER` (**обязательный**) - пользователь для доступа к Hrobot API
+ * `HROBOT_PASS` (**обязательный**) - пароль для доступа к Hrobot API
+ * `HROBOT_PERIOD`(умолчание: `180`) - период в секундах с которым будет опрашиваться Hrobot API
+
+Запросы на Hrobot имеют лимит [200 запросов в час](https://robot.your-server.de/doc/webservice/en.html#get-server). Поэтому приложение опрашивает его с указанным периодом `HROBOT_PERIOD`, а результаты хранит в памяти. Опрос раз в 180 секунд это 20 запросов в час. Данный параметр можете подобрать под ваши нужды.
+
 # Лицензия
 
 Apache License, Version 2.0
