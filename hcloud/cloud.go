@@ -29,8 +29,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	hrobot "github.com/nl2go/hrobot-go"
-	"k8s.io/kubernetes/pkg/cloudprovider"
-	"k8s.io/kubernetes/pkg/controller"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 const (
@@ -59,7 +58,7 @@ type cloud struct {
 	instances cloudprovider.Instances
 	zones     cloudprovider.Zones
 	routes    cloudprovider.Routes
-	network   string
+	network   int
 }
 
 type config struct {
@@ -145,7 +144,7 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("environment variable %q is required", nodeNameENVVar)
 	}
 
-	network := os.Getenv(hcloudNetworkENVVar)
+	// network := os.Getenv(hcloudNetworkENVVar)
 
 	opts := []hcloud.ClientOption{
 		hcloud.WithToken(token),
@@ -181,14 +180,18 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		zones:     newZones(client, nodeName),
 		instances: newInstances(client),
 		routes:    nil,
-		network:   network,
+		network:   0,
 	}, nil
 }
 
-func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {}
+func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {}
 
 func (c *cloud) Instances() (cloudprovider.Instances, bool) {
 	return c.instances, true
+}
+
+func (c *cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
+	return nil, false
 }
 
 func (c *cloud) Zones() (cloudprovider.Zones, bool) {

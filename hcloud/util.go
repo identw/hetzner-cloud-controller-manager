@@ -25,7 +25,7 @@ import (
 	"regexp"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"k8s.io/kubernetes/pkg/cloudprovider"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 func getServerByName(ctx context.Context, c commonClient, name string) (server *hcloud.Server, err error) {

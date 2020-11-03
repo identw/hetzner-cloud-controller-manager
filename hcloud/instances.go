@@ -21,7 +21,7 @@ import (
 	"os"
 	"strconv"
 
-	"k8s.io/kubernetes/pkg/cloudprovider"
+	cloudprovider "k8s.io/cloud-provider"
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,6 +109,32 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 	var id int
 	id, err = providerIDToServerID(providerID)
 	if err != nil {
+		return false, err
+	}
+
+	if id == excludeServer.ID {
+		return true, nil
+	}
+
+	var server *hcloud.Server
+	server, _, err = i.client.Hcloud.Server.GetByID(ctx, id)
+	if server == nil {
+		server, err = hrobotGetServerByID(id)
+	}
+
+	if err != nil {
+		return false, err
+	}
+	
+	exists = server != nil
+
+	return exists, nil
+}
+
+func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bool, err error) {
+	var  id int
+	id, err = providerIDToServerID(node.Spec.ProviderID)
+	if err != nil {
 		return
 	}
 
@@ -134,6 +160,32 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (isOff bool, err error) {
 	var id int
 	id, err = providerIDToServerID(providerID)
+	if err != nil {
+		return
+	}
+	
+	if id == excludeServer.ID {
+		return false, nil
+	}
+
+	var server *hcloud.Server
+	server, _, err = i.client.Hcloud.Server.GetByID(ctx, id)
+	if server == nil {
+		server, err = hrobotGetServerByID(id)
+	}
+
+	if err != nil {
+		return
+	}
+
+	isOff = server != nil && server.Status == hcloud.ServerStatusOff
+	return
+}
+
+func (i instances) InstanceShutdown(ctx context.Context, node *v1.Node) (isOff bool, err error) {
+	var id int
+	
+	id, err = providerIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return
 	}

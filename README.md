@@ -1,8 +1,8 @@
 # Kubernetes Cloud Controller Manager for Hetzner Cloud and Hetzner Dedicated
 This controller is based on [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager), but also support [Hetzner dedicated servers](https://www.hetzner.com/dedicated-rootserver).
 
-Features:
- * adds the following labels to nodes `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`
+## Features
+ * adds the following labels to nodes `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`, `node.kubernetes.io/instance-type`, `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`
  * sets the external ipv4 address to node status.addresses
  * deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers)
  * exclude the removal of nodes that belong to other providers (kubelet on these nodes should be run WITHOUT the `--cloud-provider=external` option). See section [Exclude nodes](#exclude-nodes)
@@ -14,21 +14,23 @@ You can find more information about the cloud controller manager in the [kuberen
 
 # Example
 ```bash
-$ kubectl get node -L beta.kubernetes.io/instance-type -L failure-domain.beta.kubernetes.io/region -L failure-domain.beta.kubernetes.io/zone
-NAME               STATUS   ROLES    AGE     VERSION   INSTANCE-TYPE   REGION   ZONE
-kube-master102-1   Ready    master   9d      v1.15.3   cx21            nbg1     nbg1-dc3 # <-- cloud server
-kube-worker102-1   Ready    <none>   3m21s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
-kube-worker102-3   Ready    <none>   3m37s   v1.15.3   cx31            nbg1     nbg1-dc3 # <-- cloud server
-kube-worker102-4   Ready    <none>   2d18h   v1.15.3   EX41S-SSD       fsn1     fsn1-dc8 # <-- dedicated server
-kube-worker102-101 Ready    <none>   17m     v1.15.3                                     # <-- server from another provider 
+$ kubectl get node -L node.kubernetes.io/instance-type -L topology.kubernetes.io/region -L topology.kubernetes.io/zone
+NAME                STATUS   ROLES    AGE     VERSION   INSTANCE-TYPE   REGION   ZONE
+kube-master103-1    Ready    master   6h37m   v1.19.3   cx31            hel1     hel1-dc2 # <-- cloud server
+kube-master103-2    Ready    master   6h37m   v1.19.3   cx31            hel1     hel1-dc2 # <-- cloud server
+kube-master103-3    Ready    master   6h37m   v1.19.3   cx31            hel1     hel1-dc2 # <-- cloud server
+kube-worker103-1    Ready    <none>   6h37m   v1.19.3   cx31            hel1     hel1-dc2 # <-- cloud server
+kube-worker103-10   Ready    <none>   3m59s   v1.19.3   EX42-NVMe       hel1     hel1-dc2 # <-- dedicated server
+kube-worker103-2    Ready    <none>   6h37m   v1.19.3   cx31            hel1     hel1-dc2 # <-- cloud server
 
 $ kubectl get node -o wide
-NAME               STATUS   ROLES    AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-kube-master102-1   Ready    master   9d      v1.15.3   <none>        78.47.171.273    Ubuntu 18.04.3 LTS   4.18.0-25-generic   docker://18.9.8
-kube-worker102-1   Ready    <none>   24m     v1.15.3   <none>        78.47.111.15     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
-kube-worker102-3   Ready    <none>   24m     v1.15.3   <none>        78.47.156.13     Ubuntu 18.04.3 LTS   4.15.0-72-generic   docker://18.9.8
-kube-worker102-4   Ready    <none>   2d18h   v1.15.3   <none>        138.205.17.11    Ubuntu 18.04.3 LTS   4.18.0-25-generic   docker://18.9.8
-kube-worker102-101 Ready    <none>   18m     v1.15.3   11.100.135.98 <none>           Ubuntu 18.04.4 LTS   4.15.0-74-generic   docker://18.9.8
+NAME                STATUS   ROLES    AGE     VERSION   INTERNAL-IP      EXTERNAL-IP       OS-IMAGE             KERNEL-VERSION       CONTAINER-RUNTIME
+kube-master103-1    Ready    master   6h39m   v1.19.3   135.181.40.11    <none>            Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
+kube-master103-2    Ready    master   6h38m   v1.19.3   <none>           95.200.111.50     Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
+kube-master103-3    Ready    master   6h38m   v1.19.3   <none>           95.198.192.60     Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
+kube-worker103-1    Ready    <none>   6h38m   v1.19.3   <none>           135.181.121.132   Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
+kube-worker103-10   Ready    <none>   5m24s   v1.19.3   <none>           95.216.231.222    Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
+kube-worker103-2    Ready    <none>   6h38m   v1.19.3   <none>           135.181.30.198    Ubuntu 20.04.1 LTS   5.4.0-52-generic     containerd://1.2.13
 ```
 
 Dedicated server:
@@ -38,37 +40,63 @@ kind: Node
 metadata:
   annotations:
     node.alpha.kubernetes.io/ttl: "0"
-  creationTimestamp: "2020-01-10T12:38:09Z"
+    volumes.kubernetes.io/controller-managed-attach-detach: "true"
+  creationTimestamp: "2020-11-03T12:33:13Z"
   labels:
     beta.kubernetes.io/arch: amd64
-    beta.kubernetes.io/instance-type: EX41S-SSD # <-- server product
+    beta.kubernetes.io/instance-type: EX42-NVMe # <-- server product
     beta.kubernetes.io/os: linux
-    failure-domain.beta.kubernetes.io/region: fsn1   #  <-- location
-    failure-domain.beta.kubernetes.io/zone: fsn1-dc8 #  <-- datacenter
+    failure-domain.beta.kubernetes.io/region: hel1 #  <-- location
+    failure-domain.beta.kubernetes.io/zone: hel1-dc2 #  <-- location
     kubernetes.io/arch: amd64
-    kubernetes.io/hostname: kube-worker102-4
+    kubernetes.io/hostname: kube-worker103-10
     kubernetes.io/os: linux
-  name: kube-worker102-4
-  resourceVersion: "1044876"
-  selfLink: /api/v1/nodes/kube-worker102-4
-  uid: 9e6c1873-cd43-482d-90a8-43d676dcd1fa
+    node.kubernetes.io/instance-type: EX42-NVMe # <-- server product
+    topology.kubernetes.io/region: hel1 #  <-- location
+    topology.kubernetes.io/zone: hel1-dc2 #  <-- location
+  name: kube-worker103-10
+  resourceVersion: "115117"
+  selfLink: /api/v1/nodes/kube-worker103-10
+  uid: fc0c110f-21bf-4f86-924a-c979d73630af
 spec:
-  podCIDR: 10.244.54.0/24
-  providerID: hetzner://902711 # <-- Server ID
+  podCIDR: 10.245.14.0/24
+  podCIDRs:
+  - 10.245.14.0/24
+  providerID: hetzner://971213
 status:
   addresses:
-  - address: kube-worker102-4
+  - address: kube-worker103-10
     type: Hostname
-  - address: 138.205.17.11 # <-- Public ipv4
+  - address: 95.216.231.222
     type: ExternalIP
   allocatable:
     cpu: "8"
-    ephemeral-storage: "218529260797"
+    ephemeral-storage: "450674933014"
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 65637400Ki
+    memory: 65645832Ki
     pods: "110"
-
+  capacity:
+    cpu: "8"
+    ephemeral-storage: 489013600Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    memory: 65748232Ki
+    pods: "110"
+  daemonEndpoints:
+    kubeletEndpoint:
+      Port: 10250
+  nodeInfo:
+    architecture: amd64
+    bootID: 7b57a478-abc1-4818-9cfe-ee37853c0c5c
+    containerRuntimeVersion: containerd://1.2.13
+    kernelVersion: 5.4.0-52-generic
+    kubeProxyVersion: v1.19.3
+    kubeletVersion: v1.19.3
+    machineID: b756fa1c38304d40b7a81048551c718a
+    operatingSystem: linux
+    osImage: Ubuntu 18.04.5 LTS
+    systemUUID: 5FF254FD-C436-4866-80A0-06690782E6D9
 ```
 
 Cloud server:
@@ -77,39 +105,73 @@ apiVersion: v1
 kind: Node
 metadata:
   annotations:
-    kubeadm.alpha.kubernetes.io/cri-socket: /var/run/dockershim.sock
+    kubeadm.alpha.kubernetes.io/cri-socket: /run/containerd/containerd.sock
     node.alpha.kubernetes.io/ttl: "0"
-  creationTimestamp: "2020-01-13T06:49:28Z"
+    volumes.kubernetes.io/controller-managed-attach-detach: "true"
+  creationTimestamp: "2020-11-03T05:59:44Z"
   labels:
     beta.kubernetes.io/arch: amd64
     beta.kubernetes.io/instance-type: cx31 # <-- Server type
     beta.kubernetes.io/os: linux
-    failure-domain.beta.kubernetes.io/region: nbg1    #  <-- location
-    failure-domain.beta.kubernetes.io/zone: nbg1-dc3  # <-- datacenter
+    failure-domain.beta.kubernetes.io/region: hel1 #  <-- location
+    failure-domain.beta.kubernetes.io/zone: hel1-dc2 # <-- datacenter
     kubernetes.io/arch: amd64
-    kubernetes.io/hostname: kube-worker102-3
+    kubernetes.io/hostname: kube-worker103-1
     kubernetes.io/os: linux
-  name: kube-worker102-3
-  resourceVersion: "1045728"
-  selfLink: /api/v1/nodes/kube-worker102-3
-  uid: e626e314-7c28-4f54-86cd-6c0a10493a44
+    node.kubernetes.io/instance-type: cx31 # <-- Server type
+    topology.kubernetes.io/region: hel1 #  <-- location
+    topology.kubernetes.io/zone: hel1-dc2 # <-- datacenter
+  name: kube-worker103-1
+  resourceVersion: "112680"
+  selfLink: /api/v1/nodes/kube-worker103-1
+  uid: f902a256-dd00-4a59-8254-e172bb33d2ee
 spec:
-  podCIDR: 10.244.1.0/24
-  providerID: hetzner://4017715 # <-- Server ID
+  podCIDR: 10.245.4.0/24
+  podCIDRs:
+  - 10.245.4.0/24
+  providerID: hetzner://8440811
 status:
   addresses:
-  - address: kube-worker102-3
+  - address: kube-worker103-1
     type: Hostname
-  - address: 78.47.156.13  # <-- Public ipv4
+  - address: 135.181.121.132
     type: ExternalIP
   allocatable:
     cpu: "2"
-    ephemeral-storage: "72538243772"
+    ephemeral-storage: "72456848060"
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 7871308Ki
+    memory: 7856256Ki
     pods: "110"
+  capacity:
+    cpu: "2"
+    ephemeral-storage: 78620712Ki
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    memory: 7958656Ki
+    pods: "110"
+  daemonEndpoints:
+    kubeletEndpoint:
+      Port: 10250
+  nodeInfo:
+    architecture: amd64
+    bootID: 53627e44-4e0e-49b5-b711-bc5ffdcee207
+    containerRuntimeVersion: containerd://1.2.13
+    kernelVersion: 5.4.0-52-generic
+    kubeProxyVersion: v1.19.3
+    kubeletVersion: v1.19.3
+    machineID: 332bcde329124b7fa5f62c03aef2739d
+    operatingSystem: linux
+    osImage: Ubuntu 20.04.1 LTS
+    systemUUID: 332bcde3-2912-4b7f-a5f6-2c03aef2739d
 ```
+
+# Version matrix
+| Kubernetes    | cloud controller | Deployment File |
+| ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.19          | v0.0.5 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.5/deploy/v0.0.5-deployment.yaml      |
+| 1.15-1.16     | v0.0.4 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.4/deploy/v0.0.4-deployment.yaml      |
+
 
 # Deployment
 You need to create a token to access the API Hetzner Cloud and API Hetzner Robot. To do this, follow the instructions below:
@@ -140,7 +202,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Deployment controller:
 ```bash
-kubectl apply -f deploy/v0.0.4-deployment.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.5/deploy/v0.0.5-deployment.yaml
 ```
 
 Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
@@ -202,7 +264,7 @@ It is very important to run kubelet on such servers WITHOUT the `--cloud-provide
 
 For deployment with exclude servers, a separate file is provided:
 ```bash
-kubectl apply -f deploy/v0.0.4-deployment-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.5/deploy/v0.0.5-deployment-exclude.yaml
 ```
 
 # Evnironment variables
