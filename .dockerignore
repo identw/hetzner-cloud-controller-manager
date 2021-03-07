@@ -1,0 +1,10 @@
+/.idea
+/tmp
+/.github
+/*.md
+/LICENSE
+/.git
+/deploy
+/.dockerignore
+/Dockerfile
+/.gitignore

@@ -30,27 +30,40 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	hrobot "github.com/nl2go/hrobot-go"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const (
-	hrobotUserENVVar     = "HROBOT_USER"
-	hrobotPassENVVar     = "HROBOT_PASS"
-	hrobotPeriodENVVar   = "HROBOT_PERIOD"
-	hcloudTokenENVVar    = "HCLOUD_TOKEN"
-	hcloudEndpointENVVar = "HCLOUD_ENDPOINT"
-	hcloudNetworkENVVar  = "HCLOUD_NETWORK"
-	nodeNameENVVar       = "NODE_NAME"
-	providerName         = "hetzner"
-	providerVersion      = "v0.0.4"
+	hrobotUserENVVar        = "HROBOT_USER"
+	hrobotPassENVVar        = "HROBOT_PASS"
+	hrobotPeriodENVVar      = "HROBOT_PERIOD"
+	hcloudTokenENVVar       = "HCLOUD_TOKEN"
+	hcloudEndpointENVVar    = "HCLOUD_ENDPOINT"
+	hcloudNetworkENVVar     = "HCLOUD_NETWORK"
+	nodeNameENVVar          = "NODE_NAME"
+	providerNameENVVar      = "PROVIDER_NAME"
+	nameLabelTypeENVVar     = "NAME_LABEL_TYPE"
+	nameCloudNodeENVVar     = "NAME_CLOUD_NODE"
+	nameDedicatedNodeENVVar = "NAME_DEDICATED_NODE"
+	enableSyncLabelsENVVar  = "ENABLE_SYNC_LABELS"
+	providerVersion         = "v0.0.6"
 )
 
 var (
 	hrobotPeriod = 180
+	nameLabelType = "node.hetzner.com/type"
+	nameCloudNode = "cloud"
+	nameDedicatedNode = "dedicated"
+	enableSyncLabels = true
+	providerName = "hetzner"
+	
 )
 
 type commonClient struct {
 	Hrobot hrobot.RobotClient
 	Hcloud *hcloud.Client
+	K8sClient *kubernetes.Clientset
 }
 
 type cloud struct {
@@ -62,7 +75,7 @@ type cloud struct {
 }
 
 type config struct {
-	ExcludeServers []string                     `json:"exclude_servers"`
+	ExcludeServers []string `json:"exclude_servers"`
 }
 
 type HrobotServer struct {
@@ -170,10 +183,36 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		hrobotPeriod, _ = strconv.Atoi(period)
 	}
 
+	if s:= os.Getenv(providerNameENVVar); s != "" {
+		providerName = s
+	}
+	if s := os.Getenv(nameLabelTypeENVVar); s != "" {
+		nameLabelType = s
+	}
+	if s := os.Getenv(nameCloudNodeENVVar); s != "" {
+		nameCloudNode = s
+	}
+	if s := os.Getenv(nameDedicatedNodeENVVar); s != "" {
+		nameDedicatedNode = s
+	}
+	if s := os.Getenv(enableSyncLabelsENVVar); s == "false" {
+		enableSyncLabels = false
+	}
+
 	var client commonClient
 	client.Hcloud = hcloud.NewClient(opts...)
 	client.Hrobot = hrobot.NewBasicAuthClient(user, pass)
 	readHrobotServers(client.Hrobot)
+
+	// k8s read config
+	k8sConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("Could not read k8s config: %s", err.Error())
+	}
+	client.K8sClient, err = kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		return nil, fmt.Errorf("k8s config problem: %s", err.Error())
+	}
 
 	return &cloud{
 		client:    client,

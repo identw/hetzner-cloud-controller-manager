@@ -23,10 +23,15 @@ import (
 	"strconv"
 	"strings"
 	"regexp"
+	"encoding/json"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	cloudprovider "k8s.io/cloud-provider"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 )
+
 
 func getServerByName(ctx context.Context, c commonClient, name string) (server *hcloud.Server, err error) {
 	// Find exclude servers
@@ -40,6 +45,11 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	if err != nil {
 		return
 	}
+
+	if server != nil {
+		syncLabels(c.K8sClient, server)
+		addTypeLabel(c.K8sClient, server.Name, nameCloudNode)
+	}
 	
 	if server == nil {
 		// try hrobot find
@@ -49,6 +59,7 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 			err = cloudprovider.InstanceNotFound
 			return
 		}
+		addTypeLabel(c.K8sClient, server.Name, nameDedicatedNode)
 		return
 	}
 	return
@@ -64,6 +75,11 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 	if err != nil {
 		return
 	}
+
+	if server != nil {
+		syncLabels(c.K8sClient, server)
+		addTypeLabel(c.K8sClient, server.Name, nameCloudNode)
+	}
 	if server == nil {
 		server, err = hrobotGetServerByID(id)
 		if server == nil {
@@ -71,6 +87,7 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 			err = cloudprovider.InstanceNotFound
 			return
 		}
+		addTypeLabel(c.K8sClient, server.Name, nameDedicatedNode)
 	}
 	return
 }
@@ -129,4 +146,68 @@ func hrobotGetServerByID(id int) (*hcloud.Server, error) {
 	}
 	// server not found
 	return nil, nil
+}
+
+// Sync Labels from cloud node to k8s node
+func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
+	if (!enableSyncLabels) {
+		return
+	}
+	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), server.Name, metav1.GetOptions{})
+	if err == nil {
+		// Annotation in which the labels applied from the last time are stored
+		const annotation = "ccm.hetzner.com/last-applied-labels"
+		// flag exist annotation
+		ccma := false
+		// flag changed
+		changed := false
+		if _, ok := node.ObjectMeta.Annotations[annotation]; ok {
+			ccma = true
+		}
+		// If the annotation exists, then we look for labels that have been removed from the server and
+		// remove them from the k8s node
+		if ccma {
+			// Previous labels from annotations
+			var pl map[string]string
+			if err := json.Unmarshal([]byte(node.ObjectMeta.Annotations[annotation]), &pl); err != nil {
+				klog.Errorf("Unmarshal error annotatios: %s, error: %s", annotation, err)
+			}
+			for k := range pl {
+				if _, ok := server.Labels[k]; !ok {
+					changed = true
+					delete(node.ObjectMeta.Labels, k)
+				}
+			}
+		} 
+		sl, _ := json.Marshal(server.Labels)
+		node.ObjectMeta.Annotations[annotation] = string(sl)
+		// sync labels
+		for k, v := range server.Labels {
+			if _, ok := node.ObjectMeta.Labels[k]; !ok {
+				changed = true
+				node.ObjectMeta.Labels[k] = v
+			}
+			if node.ObjectMeta.Labels[k] != v {
+				changed = true
+				node.ObjectMeta.Labels[k] = v
+			}
+		}
+
+		if changed {
+			k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+		}
+	}
+}
+
+func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string) {
+	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
+	if err == nil {
+		if _, ok := node.ObjectMeta.Labels[nameLabelType]; !ok {
+			node.ObjectMeta.Labels[nameLabelType] = typeNode
+		}
+		if node.ObjectMeta.Labels[nameLabelType] != typeNode {
+			node.ObjectMeta.Labels[nameLabelType] = typeNode
+		}
+		k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+	}
 }
