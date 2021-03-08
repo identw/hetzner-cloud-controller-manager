@@ -1,4 +1,5 @@
 FROM golang:1.15 as builder
+LABEL org.opencontainers.image.source https://github.com/identw/hetzner-cloud-controller-manager
 WORKDIR /maschine-controller/src
 COPY ./go.mod .
 COPY ./go.sum .
