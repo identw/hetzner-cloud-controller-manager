@@ -27,17 +27,15 @@ You can find more information about the cloud controller manager in the [kuberen
 
 # Example
 ```bash
-$ kubectl get node -L node.kubernetes.io/instance-type -L topology.kubernetes.io/region -L topology.kubernetes.io/zone -L node.hetzner.com/type
-NAME               STATUS   ROLES                  AGE     VERSION   INSTANCE-TYPE   REGION   ZONE       TYPE
-kube-master121-1   Ready    control-plane,master   25m     v1.20.4   cx31            hel1     hel1-dc2   cloud
-kube-worker121-1   Ready    <none>                 24m     v1.20.4   cx31            hel1     hel1-dc2   cloud
-kube-worker121-2   Ready    <none>                 9m18s   v1.20.4   AX41-NVMe       hel1     hel1-dc4   dedicated
+NAME               STATUS   ROLES    AGE   VERSION    INSTANCE-TYPE   REGION   ZONE       TYPE
+kube-master121-1   Ready    master   54m   v1.16.15   cx31            hel1     hel1-dc2   cloud
+kube-worker121-1   Ready    <none>   53m   v1.16.15   cx31            hel1     hel1-dc2   cloud
+kube-worker121-2   Ready    <none>   76s   v1.16.15   AX41-NVMe       hel1     hel1-dc4   dedicated
 
-$ kubectl get node -o wide
-NAME               STATUS   ROLES                  AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-kube-master121-1   Ready    control-plane,master   25m     v1.20.4   <none>        95.131.108.198   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
-kube-worker121-1   Ready    <none>                 25m     v1.20.4   <none>        95.131.234.167   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
-kube-worker121-2   Ready    <none>                 9m40s   v1.20.4   <none>        111.233.1.99     Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
+NAME               STATUS   ROLES    AGE    VERSION    INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
+kube-master121-1   Ready    master   54m    v1.16.15   <none>        95.216.202.134   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
+kube-worker121-1   Ready    <none>   53m    v1.16.15   <none>        95.217.128.128   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
+kube-worker121-2   Ready    <none>   102s   v1.16.15   <none>        135.181.4.26     Ubuntu 20.04.1 LTS   5.4.0-65-generic   containerd://1.2.13
 ```
 
 Dedicated server:
@@ -63,9 +61,6 @@ metadata:
     kubernetes.io/hostname: kube-worker121-2
     kubernetes.io/os: linux
     node.hetzner.com/type: dedicated # <-- hetzner node type (cloud or dedicated)
-    node.kubernetes.io/instance-type: AX41-NVMe # <-- server product
-    topology.kubernetes.io/region: hel1 # <-- location
-    topology.kubernetes.io/zone: hel1-dc4 # <-- datacenter
   name: kube-worker121-2
   resourceVersion: "3930"
   uid: 19a6c528-ac02-4f42-bb19-ee701f43ca6d
@@ -119,9 +114,6 @@ metadata:
     kubernetes.io/hostname: kube-worker121-1
     kubernetes.io/os: linux
     node.hetzner.com/type: cloud # <-- hetzner node type (cloud or dedicated)
-    node.kubernetes.io/instance-type: cx31 # <-- server type
-    topology.kubernetes.io/region: hel1 # <-- location
-    topology.kubernetes.io/zone: hel1-dc2 # <-- datacenter
   name: kube-worker121-1
   resourceVersion: "4449"
   uid: f873c208-6403-4ed5-a030-ca92a8a0d48c
@@ -283,9 +275,9 @@ The controller copies these labels to the labels of the k8s node:
 ```bash
 $ kubectl get node -L myLabel -L node.hetzner.com/type
 NAME               STATUS   ROLES                  AGE   VERSION   MYLABEL   TYPE
-kube-master121-1   Ready    control-plane,master   36m   v1.20.4   myValue   cloud
-kube-worker121-1   Ready    <none>                 35m   v1.20.4   myValue   cloud
-kube-worker121-2   Ready    <none>                 20m   v1.20.4             dedicated
+kube-master121-1   Ready    master                 36m   v1.16.15   myValue   cloud
+kube-worker121-1   Ready    <none>                 35m   v1.16.15   myValue   cloud
+kube-worker121-2   Ready    <none>                 20m   v1.16.15             dedicated
 ```
 This behavior can be disabled by setting the environment variable `ENABLE_SYNC_LABELS = false`.
 
@@ -299,9 +291,9 @@ kube-worker121-1
 $ sleep 300
 $ kubectl get node -L myLabel -L node.hetzner.com/type
 NAME               STATUS   ROLES                  AGE   VERSION   MYLABEL   TYPE
-kube-master121-1   Ready    control-plane,master   37m   v1.20.4   myValue   cloud
-kube-worker121-1   Ready    <none>                 37m   v1.20.4             cloud
-kube-worker121-2   Ready    <none>                 21m   v1.20.4             dedicated
+kube-master121-1   Ready    master                 37m   v1.16.15   myValue   cloud
+kube-worker121-1   Ready    <none>                 37m   v1.16.15             cloud
+kube-worker121-2   Ready    <none>                 21m   v1.16.15             dedicated
 ```
 
 Synchronization does not occur instantly, but with an interval of 5 minutes. This can be changed via the `--node-status-update-frequency` argument. But be careful, there is a limit on the number of requests in the hetzner API. I would not recommend changing this parameter.

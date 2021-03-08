@@ -153,7 +153,7 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 	if (!enableSyncLabels) {
 		return
 	}
-	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), server.Name, metav1.GetOptions{})
+	node, err := k8sClient.CoreV1().Nodes().Get(server.Name, metav1.GetOptions{})
 	if err == nil {
 		// Annotation in which the labels applied from the last time are stored
 		const annotation = "ccm.hetzner.com/last-applied-labels"
@@ -194,13 +194,13 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 		}
 
 		if changed {
-			k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+			k8sClient.CoreV1().Nodes().Update(node)
 		}
 	}
 }
 
 func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string) {
-	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
+	node, err := k8sClient.CoreV1().Nodes().Get(name, metav1.GetOptions{})
 	if err == nil {
 		if _, ok := node.ObjectMeta.Labels[nameLabelType]; !ok {
 			node.ObjectMeta.Labels[nameLabelType] = typeNode
@@ -208,6 +208,6 @@ func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string)
 		if node.ObjectMeta.Labels[nameLabelType] != typeNode {
 			node.ObjectMeta.Labels[nameLabelType] = typeNode
 		}
-		k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+		k8sClient.CoreV1().Nodes().Update(node)
 	}
 }

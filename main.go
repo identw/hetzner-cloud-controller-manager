@@ -27,7 +27,7 @@ import (
 
 	_ "github.com/identw/hetzner-cloud-controller-manager/hcloud"
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
-	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
+	// _ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
 )
 
 func main() {
