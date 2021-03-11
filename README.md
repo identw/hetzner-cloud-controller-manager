@@ -156,8 +156,8 @@ status:
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
 | 1.20.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6/deploy/deploy.yaml      |
-| 1.19.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6-k8s-v1.18.x/deploy/deploy.yaml      |
-| 1.18.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6-k8s-v1.18.x/deploy/deploy.yaml      |
+| 1.19.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6/deploy/deploy.yaml      |
+| 1.18.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6/deploy/deploy.yaml      |
 | 1.17.x          | v0.0.6 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6/deploy/deploy.yaml      |
 | 1.16.x          | v0.0.6-k8s-v1.16.x | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.6-k8s-v1.16.x/deploy/deploy.yaml      |
 
