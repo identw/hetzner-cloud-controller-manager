@@ -20,12 +20,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"regexp"
 	"encoding/json"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	cloudprovider "k8s.io/cloud-provider"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +36,7 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	// Find exclude servers
 	for _, s := range cloudConfig.ExcludeServers {
 		if exclude, _ := regexp.MatchString(s, name); exclude {
-			return excludeServer, nil
+			return hcops.ExcludeServer, nil
 		}
 	}
 	
@@ -48,7 +47,7 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 
 	if server != nil {
 		syncLabels(c.K8sClient, server)
-		addTypeLabel(c.K8sClient, server.Name, nameCloudNode)
+		addTypeLabel(c.K8sClient, server.Name, hcops.NameCloudNode)
 	}
 	
 	if server == nil {
@@ -59,7 +58,7 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 			err = cloudprovider.InstanceNotFound
 			return
 		}
-		addTypeLabel(c.K8sClient, server.Name, nameDedicatedNode)
+		addTypeLabel(c.K8sClient, server.Name, hcops.NameDedicatedNode)
 		return
 	}
 	return
@@ -67,8 +66,8 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 
 func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.Server, err error) {
 	// Find exclude servers
-	if id == excludeServer.ID {
-		return excludeServer, nil
+	if id == hcops.ExcludeServer.ID {
+		return hcops.ExcludeServer, nil
 	}
 
 	server, _, err = c.Hcloud.Server.GetByID(ctx, id)
@@ -78,7 +77,7 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 
 	if server != nil {
 		syncLabels(c.K8sClient, server)
-		addTypeLabel(c.K8sClient, server.Name, nameCloudNode)
+		addTypeLabel(c.K8sClient, server.Name, hcops.NameCloudNode)
 	}
 	if server == nil {
 		server, err = hrobotGetServerByID(id)
@@ -87,30 +86,11 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 			err = cloudprovider.InstanceNotFound
 			return
 		}
-		addTypeLabel(c.K8sClient, server.Name, nameDedicatedNode)
+		addTypeLabel(c.K8sClient, server.Name, hcops.NameDedicatedNode)
 	}
 	return
 }
 
-func providerIDToServerID(providerID string) (id int, err error) {
-	if providerID == strconv.Itoa(excludeServer.ID) {
-		return excludeServer.ID, nil
-	}
-	providerPrefix := providerName + "://"
-	if !strings.HasPrefix(providerID, providerPrefix) {
-		err = fmt.Errorf("ERROR: providerID should start with hetzner://: %s", providerID)
-		return
-	}
-
-	idString := strings.ReplaceAll(providerID, providerPrefix, "")
-	if idString == "" {
-		err = fmt.Errorf("ERROR: missing server id in providerID: %s", providerID)
-		return
-	}
-
-	id, err = strconv.Atoi(idString)
-	return
-}
 
 func hrobotGetServerByName(name string) (*hcloud.Server, error) {
 	for _, s := range hrobotServers {
@@ -202,11 +182,11 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string) {
 	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
 	if err == nil {
-		if _, ok := node.ObjectMeta.Labels[nameLabelType]; !ok {
-			node.ObjectMeta.Labels[nameLabelType] = typeNode
+		if _, ok := node.ObjectMeta.Labels[hcops.NameLabelType]; !ok {
+			node.ObjectMeta.Labels[hcops.NameLabelType] = typeNode
 		}
-		if node.ObjectMeta.Labels[nameLabelType] != typeNode {
-			node.ObjectMeta.Labels[nameLabelType] = typeNode
+		if node.ObjectMeta.Labels[hcops.NameLabelType] != typeNode {
+			node.ObjectMeta.Labels[hcops.NameLabelType] = typeNode
 		}
 		k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	}

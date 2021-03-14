@@ -45,8 +45,9 @@ replace k8s.io/metrics => k8s.io/metrics v0.19.8
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.8
 
 require (
-	github.com/hetznercloud/hcloud-go v1.23.1
+	github.com/hetznercloud/hcloud-go v1.24.0
 	github.com/nl2go/hrobot-go v0.1.3
+	github.com/stretchr/testify v1.4.0
 	k8s.io/api v0.19.8
 	k8s.io/apimachinery v0.19.8
 	k8s.io/client-go v0.19.8

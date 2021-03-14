@@ -1,6 +1,10 @@
 Changelog
 =========
 
+v0.0.7-rc
+------
+ * Add support LoadBalancer
+
 v0.0.6
 ------
  * Synchronization of labels from cloud servers to k8s labels of work nodes. Removing the label from the cloud server also removes it on the k8s worker node 

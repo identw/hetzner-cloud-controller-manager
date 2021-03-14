@@ -2,18 +2,18 @@
 This controller is based on [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager), but also support [Hetzner dedicated servers](https://www.hetzner.com/dedicated-rootserver).
 
 ## Features
- * adds the following labels to nodes `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`, `node.kubernetes.io/instance-type`, `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`
- * adds the label `node.hetzner.com/type`, which indicates the type of node (cloud or dedicated)
- * copies labels from cloud servers to labels of k8s nodes, see section [Copying Labels from Cloud Nodes](#copying-labels-from-cloud-nodes)
- * sets the external ipv4 address to node status.addresses
- * deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers)
- * exclude the removal of nodes that belong to other providers (kubelet on these nodes should be run WITHOUT the `--cloud-provider=external` option). See section [Exclude nodes](#exclude-nodes)
-
-You can find more information about the cloud controller manager in the [kuberentes documentation](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/).
+* **instances interface**: adds the server type to the `beta.kubernetes.io/instance-type` `node.kubernetes.io/instance-type` label, sets the external ipv4 and deletes nodes from Kubernetes that were deleted from the Hetzner Cloud or from Hetzner Robot (panel manager for dedicated servers).
+* **zones interface**: makes Kubernetes aware of the failure domain of the server by setting the `failure-domain.beta.kubernetes.io/region` `failure-domain.beta.kubernetes.io/zone` `topology.kubernetes.io/region` `topology.kubernetes.io/zone` labels on the node.
+* **Load Balancers**: allows to use Hetzner Cloud Load Balancers with Kubernetes Services. Works with dedicated servers too.
+* adds the label `node.hetzner.com/type`, which indicates the type of node (cloud or dedicated).
+* copies labels from cloud servers to labels of k8s nodes, see section [Copying Labels from Cloud Nodes](#copying-labels-from-cloud-nodes).
+* exclude the removal of nodes that belong to other providers (kubelet on these nodes should be run WITHOUT the `--cloud-provider=external` option). See section [Exclude nodes](#exclude-nodes).
 
 **Note:** In the robot panel, dedicated servers, you need to assign a name that matches the name of the node in the k8s cluster. This is necessary so that the controller can detect the server through the API during the initial initialization of the node. After initialization, the controller will use the server ID.
 
 **Note:** Unlike the original [controller]((https://github.com/hetznercloud/hcloud-cloud-controller-manager)), this controller does not support [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic), because using them it is impossible to build a network between the cloud and dedicated servers. For a network in your cluster consisting of dedicated and cloud servers, you should  use some kind of **cni** plugin, example [kube-router](https://github.com/cloudnativelabs/kube-router) with option `--enable-overlay`. If you need [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic) then you should use the original [controller](https://github.com/hetznercloud/hcloud-cloud-controller-manager) and refuse to use dedicated servers in your cluster.
+
+You can find more information about the cloud controller manager in the [kuberentes documentation](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/).
 
 # Table of Contents
  * [Example](#example)
@@ -23,6 +23,9 @@ You can find more information about the cloud controller manager in the [kuberen
    - [Exclude nodes](#exclude-nodes)
  * [Evnironment variables](#evnironment-variables)
  * [Copying Labels from Cloud Nodes](#copying-labels-from-cloud-nodes)
+ * [Load Balancers](#load-balancers)
+   - [Annotations](#annotations)
+   - [Examples](#examples-of-balancer-annotations)
  * [License](#license)
 
 # Example
@@ -268,6 +271,20 @@ kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controll
  * `NAME_CLOUD_NODE` (default: `cloud`) - the name of the cloud node in the meaning of the label `NAME_LABEL_TYPE`
  * `NAME_DEDICATED_NODE` (default: `dedicated`) - the name of the dedicated node in the meaning of the label `NAME_LABEL_TYPE`
  * `ENABLE_SYNC_LABELS` (default: `true`) - enables/disables copying labels from cloud servers
+ * `HCLOUD_LOAD_BALANCERS_ENABLED` - (default: `true`) - enables/disables enables/disables support for load balancers
+ * `HCLOUD_LOAD_BALANCERS_LOCATION` (no default, mutually exclusive with `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`) - default location in which balancers will be created. Example: `fsn1`, `nbg1`, `hel1`
+ * `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE` (no default, mutually exclusive with `HCLOUD_LOAD_BALANCERS_LOCATION` - default network zone. Example: `eu-central`
+
+Environment variables `HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS`, `HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP` from the original controller do not make sense since this controller does not support [Hetzner Cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic). 
+
+Available locations and network zone can be found using hcloud
+```bash
+$ hcloud location list
+ID   NAME   DESCRIPTION             NETWORK ZONE   COUNTRY   CITY
+1    fsn1   Falkenstein DC Park 1   eu-central     DE        Falkenstein
+2    nbg1   Nuremberg DC Park 1     eu-central     DE        Nuremberg
+3    hel1   Helsinki DC Park 1      eu-central     FI        Helsinki
+```
 
 Hrobot get server have limit [200 requests per hour](https://robot.your-server.de/doc/webservice/en.html#get-server). Therefore, the application receives this information with the specified period (`HROBOT_PERIOD`) and saves it in memory. One poll every 180 seconds means 20 queries per hour.
 
@@ -305,6 +322,304 @@ kube-worker121-2   Ready    <none>                 21m   v1.20.4             ded
 ```
 
 Synchronization does not occur instantly, but with an interval of 5 minutes. This can be changed via the `--node-status-update-frequency` argument. But be careful, there is a limit on the number of requests in the hetzner API. I would not recommend changing this parameter.
+
+# Load Balancers
+The controller supports [Load Balancers](https://www.hetzner.com/cloud/load-balancer) for both cloud nodes and dedicated. Dedicated servers must be owned by the owner of the project in the cloud and must be managed by the same account.
+
+В targets добавляются все worker узлы кластера. Dedicated сервера имеют тип `ip`, а облачные `server`. 
+All worker nodes of the cluster are added to targets. Dedicated servers are of type `ip` and cloud servers of type `server`.
+
+Example:
+```
+$ hcloud load-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+236648   a3767f900602b4c9093823670db0372c   95.217.174.188   2a01:4f9:c01e:38c::1   lb11   hel1       eu-central
+
+
+$ hcloud load-balancer describe 236648
+ID:				236648
+Name:				a3767f900602b4c9093823670db0372c
+...
+Targets:
+  - Type:			server
+    Server:
+      ID:			10193451
+      Name:			kube-worker121-1
+    Use Private IP:		no
+    Status:
+    - Service:			3000
+      Status:			healthy
+  - Type:			ip
+    IP:				111.233.1.99
+    Status:
+    - Service:			3000
+      Status:			healthy
+...
+```
+kube-worker121-1 - cloud server, 111.233.1.99 - dedicated server (kube-worker121-2).
+
+## Annotations
+You can customize the load balancer through service annotations.
+
+ * `load-balancer.hetzner.cloud/name` - is the name of the Load Balancer. The name will be visible in the Hetzner Cloud API console.
+ * `load-balancer.hetzner.cloud/hostname` - specifies the hostname of the Load Balancer. This will be used as service.status.loadBalancer.ingress address instead of the Load Balancer IP addresses if specified
+ * `load-balancer.hetzner.cloud/protocol` (default: `tcp`) - specifies the protocol of the service. Possible values: `tcp`, `http`, `https`.
+ * `load-balancer.hetzner.cloud/algorithm-type` (default: `round_robin`) - balancing algorithm possible values: `round_robin`,` least_connections`.
+ * `load-balancer.hetzner.cloud/type` (default: `lb11`) - specifies the type of the Load Balancer. Possible values: `lb11`, `lb21`, `lb31`.
+ * `load-balancer.hetzner.cloud/location` - specifies the location where the Load Balancer will be created in. Changing the location to a different value after the load balancer was created has no effect. In order to move a load balancer to a different location it is necessary to delete and re-create it. Note, that this will lead to the load balancer getting new public IPs assigned. Mutually exclusive with `load-balancer.hetzner.cloud/network-zone`. Possible values: `fsn1`, `ngb1`, `hel1`. You can set the default using the `HCLOUD_LOAD_BALANCERS_LOCATION` environment variable.
+ * `load-balancer.hetzner.cloud/network-zone` - specifies the network zone where the Load Balancer will be created in. Changing the network zone to a different value after the load balancer was created has no effect.  In order to move a load balancer to a different network zone it is necessary to delete and re-create it. Note, that this will lead to the load balancer getting new public IPs assigned. Mutually exclusive with `load-balancer.hetzner.cloud/location`. Possible values: `eu-central`. You can set the default using the `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE` environment variable.
+ * `load-balancer.hetzner.cloud/uses-proxyprotocol` (default: `false`) - specifies if the Load Balancer services should use the proxy protocol.
+ * `load-balancer.hetzner.cloud/http-sticky-sessions`(default: `false`) - enables the sticky sessions feature of Hetzner Cloud HTTP Load Balancers.
+ * `load-balancer.hetzner.cloud/http-cookie-name` - specifies the cookie name when using  HTTP or HTTPS as protocol.
+ * `load-balancer.hetzner.cloud/http-cookie-lifetime` - specifies the lifetime of the HTTP cookie.
+ * `load-balancer.hetzner.cloud/http-certificates` - specifies a comma separated IDs of Certificates assigned to the service. HTTPS only.
+ * `load-balancer.hetzner.cloud/http-redirect-http` - create a redirect from HTTP to HTTPS. HTTPS only.
+ * `load-balancer.hetzner.cloud/health-check-protocol` (default: `tcp`) - sets the protocol the health check should be performed over. Possible values: `tcp`, `http`, `https`.
+ * `load-balancer.hetzner.cloud/health-check-port` - specifies the port the health check is be performed on.
+ * `load-balancer.hetzner.cloud/health-check-interval` - specifies the interval in which time we perform a health check in seconds.
+ * `load-balancer.hetzner.cloud/health-check-timeout` - specifies the timeout of a single health check.
+ * `load-balancer.hetzner.cloud/health-check-retries` - specifies the number of time a health check is retried until a target is marked as unhealthy.
+ * `load-balancer.hetzner.cloud/health-check-http-domain` - specifies the domain we try to access when performing the health check.
+ * `load-balancer.hetzner.cloud/health-check-http-path` - specifies the path we try to access when  performing the health check.
+ * `load-balancer.hetzner.cloud/health-check-http-validate-certificate` - specifies whether the health check should validate the SSL certificate that comes from the target  nodes.
+ * `load-balancer.hetzner.cloud/http-status-codes` - is a comma separated list of HTTP status codes which we expect.
+
+ Annotations from the original controller `load-balancer.hetzner.cloud/disable-public-network` `load-balancer.hetzner.cloud/disable-private-ingress` `load-balancer.hetzner.cloud/use-private-ip` make sense because this controller does not support [Hetzner Cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic).
+
+## Examples of balancer annotations
+Create a load balancer at location `hel1`:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/location: hel1
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud loab-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237283   a0e106866840c401ca5eff56ccb06130   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+
+$ kubectl get svc nginx
+NAME    TYPE           CLUSTER-IP       EXTERNAL-IP                           PORT(S)          AGE
+nginx   LoadBalancer   10.109.210.214   2a01:4f9:c01e:424::1,95.217.172.232   3000:30905/TCP   30m
+```
+
+In order not to specify each time the location in the annotation, you can make some default location by passing the `HCLOUD_LOAD_BALANCERS_LOCATION` environment variable to the controller.
+
+If the location doesn't matter. You can specify the zone:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/network-zone: eu-central
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   a526bb12dc33143d69b084c3e2d2e58b   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+```
+
+For convenience, you can assign a name to the balancer, which will be displayed in the API and web interface. This does not require rebuilding the service and the balancer.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+```
+
+Instead of the IP address in the k8s service status, you can specify the domain:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/hostname: example.com
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+
+$ kubectl get svc nginx
+NAME    TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+nginx   LoadBalancer   10.109.210.214   example.com   3000:30905/TCP   26m
+
+$ kubectl get svc nginx -o yaml
+apiVersion: v1
+kind: Service
+...
+status:
+  loadBalancer:
+    ingress:
+    - hostname: example.com
+```
+
+If you lack the capabilities of the current balancer, you can take a higher price. This also doesn't require re-creating the service:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/type: lb21
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+  ```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb21   hel1       eu-central
+```
+
+Change the request distribution algorithm to `least_connections`:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/algorithm-type: least_connections
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+
+```bash
+$ hcloud load-balancer describe 237284
+ID:				237284
+Name:				nginx-example
+Public Net:
+  Enabled:			yes
+  IPv4:				95.217.172.232
+  IPv6:				2a01:4f9:c01e:424::1
+Private Net:
+    No Private Network
+Algorithm:			least_connections
+Load Balancer Type:		lb11 (ID: 1)
+...
+```
+
+Change the protocol to http:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/protocol: http
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer describe 237284
+ID:				237284
+Name:				nginx-example
+Public Net:
+  Enabled:			yes
+  IPv4:				95.217.172.232
+  IPv6:				2a01:4f9:c01e:424::1
+Services:
+  - Protocol:			http
+    Listen Port:		3000
+ ...
+```
+
 
 # License
 

@@ -22,6 +22,7 @@ import (
 	"context"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
 )
@@ -48,7 +49,7 @@ func (z zones) GetZone(ctx context.Context) (zone cloudprovider.Zone, err error)
 
 func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (zone cloudprovider.Zone, err error) {
 	var id int
-	if id, err = providerIDToServerID(providerID); err != nil {
+	if id, err = hcops.ProviderIDToServerID(providerID); err != nil {
 		return
 	}
 	var server *hcloud.Server

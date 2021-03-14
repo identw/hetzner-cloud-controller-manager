@@ -2,20 +2,21 @@
 Данный контроллер основан на [hcloud-cloud-controller-manager](https://github.com/hetznercloud/hcloud-cloud-controller-manager) но помимо Hetzner Cloud поддерживает выделенные сервера [Hetzner](https://www.hetzner.com/dedicated-rootserver).
 
 Функции:
- * добавялет метки `beta.kubernetes.io/instance-type`, `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`, `node.kubernetes.io/instance-type`, `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`
+ * **instances interface**: добавляет на узлы метки `beta.kubernetes.io/instance-type`, `node.kubernetes.io/instance-type`. Устанавливает внешние ipv4 адреса и удаляет ноды из kubernetes кластера если они были удалены из Hetzner Cloud или из Hetzner Robot
+ * **zones interface**: добавялет на узлы метки `failure-domain.beta.kubernetes.io/region`, `failure-domain.beta.kubernetes.io/zone`,`topology.kubernetes.io/region`, `topology.kubernetes.io/zone`
+ * **Load Balancers**: Позволяет использовать Hetzner Cloud Load Balancers как для облачных нод так и для dedicated серверов
  * добавляет метку `node.hetzner.com/type`, в которой указан тип ноды (облачная или dedicated)
  * копирует метки из облачных серверов в метки k8s ноды, смотри раздел [Копирование меток с облачных узлов](#копирование-меток-с-облачных-узлов)
- * устанавливет внешний ip в status.addresses
- * удаляет ноды из kubernetes кластера если они были удалены из Hetzner Cloud или из Hetzner Robot
- * позволяет исключить удаление нод, которые принадлежат другим провайдерам (kubelet на этих нодах следует запускать БЕЗ опции `--cloud-provider=external`). Смотри раздел [Исключение нод](#исключение-нод)
-
-Больше информации о cloud controller manager вы можете найти в [документации kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+ * позволяет исключить удаление нод, которые принадлежат другим провайдерам и хостингам (kubelet на этих нодах следует запускать БЕЗ опции `--cloud-provider=external`). Смотри раздел [Исключение нод](#исключение-нод)
 
 **На заметку:** В robot панели, dedicated серверам, необходимо назначить имя совпадающее с именем ноды в k8s кластере. Это нужно для того чтобы контроллер смог обнаружить сервер через API, при первичной инициализации ноды. После первичной инициализации контроллер будет использовать ID сервера.
 
 **На заметку:** В отличие от оригинального [контроллера](https://github.com/hetznercloud/hcloud-cloud-controller-manager), этот контроллер не поддерживает [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), поскольку невозможно с помощью них настроить сеть между dedicated и облачным серверами. Для сети в вашем кластере состоящим из облачных и dedicated серверов следует использовать какой-нибудь **cni** плагин, например [kube-router](https://github.com/cloudnativelabs/kube-router) с включенным `--enable-overlay`. Если вам требуются [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), то вам стоит использовать оригинальный [контроллер](https://github.com/hetznercloud/hcloud-cloud-controller-manager) и отказаться от использования dedicated серверов в вашем кластере.
 
-# Содержимое
+Больше информации о cloud controller manager вы можете найти в [документации kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+
+
+# Содержание
  * [Примеры](#примеры)
  * [Cовместимость версий](#cовместимость-версий)
  * [Деплой](#Деплой)
@@ -23,6 +24,9 @@
    - [Исключение нод](#исключение-нод)
  * [Переменные среды](#переменные-среды)
  * [Копирование меток с облачных узлов](#копирование-меток-с-облачных-узлов)
+ * [Балансировщики нагрузки](#балансировщики-нагрузки)
+   - [Аннотации](#аннотации)
+   - [Примеры](#примеры-аннотаций-для-балансировщика)
  * [Лицензия](#лицензия)
 
 # Примеры
@@ -269,7 +273,20 @@ kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controll
  * `NAME_CLOUD_NODE` (умолчание: `cloud`) - название облачной ноды в значении лейбла `NAME_LABEL_TYPE`
  * `NAME_DEDICATED_NODE` (умолчание: `dedicated`) - название dedicated ноды в значении лейбла `NAME_LABEL_TYPE`
  * `ENABLE_SYNC_LABELS` (умолчание: `true`) - включает/выключает копирование меток из облачных серверов
+ * `HCLOUD_LOAD_BALANCERS_ENABLED` - (умолчание: `true`) - отключает/включает поддержку балансировщиков нагрузки
+ * `HCLOUD_LOAD_BALANCERS_LOCATION` (умолчания нет, взаимоисключающий с `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`) - location по умолчанию, в котором будут создаваться балансировщики. Например: `fsn1`, `nbg1`, `hel1`
+ * `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE` (умолчания нет, взаимоисключающий с `HCLOUD_LOAD_BALANCERS_LOCATION` - network zone по умолчанию. Нарпимер: `eu-central`
 
+ Переменные среды `HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS`, `HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP` из оригинального контроллера не имеют смысла, поскольку данный контроллер не поддерживает [Hetzner Cloud сети](https://community.hetzner.com/tutorials/hcloud-networks-basic). 
+
+Доступные локации и network zone можно узнать с помощью hcloud
+```bash
+$ hcloud location list
+ID   NAME   DESCRIPTION             NETWORK ZONE   COUNTRY   CITY
+1    fsn1   Falkenstein DC Park 1   eu-central     DE        Falkenstein
+2    nbg1   Nuremberg DC Park 1     eu-central     DE        Nuremberg
+3    hel1   Helsinki DC Park 1      eu-central     FI        Helsinki
+```
 
 Запросы на Hrobot имеют лимит [200 запросов в час](https://robot.your-server.de/doc/webservice/en.html#get-server). Поэтому приложение опрашивает его с указанным периодом `HROBOT_PERIOD`, а результаты хранит в памяти. Опрос раз в 180 секунд это 20 запросов в час. Данный параметр можете подобрать под ваши нужды.
 
@@ -307,6 +324,304 @@ kube-worker121-2   Ready    <none>                 21m   v1.20.4             ded
 ```
 
 Синхронизация происходит не моментально, а с интервалом 5 минут. Это можно изменить через аргумент `--node-status-update-frequency`. Но будте осторожны, есть лимит на количество запросов в API hetzner. Я бы не рекомендовал менять этот параметр.
+
+# Балансировщики нагрузки
+Контроллер поддерживает [Load Balancers](https://www.hetzner.com/cloud/load-balancer) как для облачных узлов так и для dedicated. Dedicated сервера должны принадлежать владельцу проекта в облаке и должны управляться той же учетной записью.
+
+В targets добавляются все worker узлы кластера. Dedicated сервера имеют тип `ip`, а облачные `server`. 
+
+Например:
+```
+$ hcloud load-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+236648   a3767f900602b4c9093823670db0372c   95.217.174.188   2a01:4f9:c01e:38c::1   lb11   hel1       eu-central
+
+
+$ hcloud load-balancer describe 236648
+ID:				236648
+Name:				a3767f900602b4c9093823670db0372c
+...
+Targets:
+  - Type:			server
+    Server:
+      ID:			10193451
+      Name:			kube-worker121-1
+    Use Private IP:		no
+    Status:
+    - Service:			3000
+      Status:			healthy
+  - Type:			ip
+    IP:				111.233.1.99
+    Status:
+    - Service:			3000
+      Status:			healthy
+...
+```
+kube-worker121-1 - облачный сервер, 111.233.1.99 - dedicated сервер (kube-worker121-2).
+
+## Аннотации
+На параметры балансировщика вы можете влиять через аннотации к сервису
+
+ * `load-balancer.hetzner.cloud/name` - имя балансировщика, по умолчанию используется случайно сгенерированный id, например `a3767f900602b4c9093823670db0372c`
+ * `load-balancer.hetzner.cloud/hostname` - Хостнейм балансировщика, который будет указан в статусе сервиса (service.status.loadBalancer.ingress)
+ * `load-balancer.hetzner.cloud/protocol` (умолчание: `tcp`) - протокол, возможные значения: `tcp`, `http`, `https`
+ * `load-balancer.hetzner.cloud/algorithm-type` (умолчание: `round_robin`) - алгоритм балансировки, возможные значения: `round_robin`, `least_connections`
+ * `load-balancer.hetzner.cloud/type` (умолчание: `lb11`) - тип балансировщика, возможные значения: `lb11`, `lb21`, `lb31`
+ * `load-balancer.hetzner.cloud/location` - локация, возможные значения: `fsn1`, `ngb1`, `hel1`. Взаимоисключающая с `load-balancer.hetzner.cloud/network-zone`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_LOCATION`. Смена локции требует пересоздание службы и смену ип адреса.
+ * `load-balancer.hetzner.cloud/network-zone` - зона, возможные значения: `eu-central`. Взаимоисключающая с `load-balancer.hetzner.cloud/location`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`
+ * `load-balancer.hetzner.cloud/uses-proxyprotocol` (умолчание `false`) - включить proxy protocol. Требует поддержку со стороны приложения
+ * `load-balancer.hetzner.cloud/http-sticky-sessions` - включить sticky-sessions с привязкой к куке
+ * `load-balancer.hetzner.cloud/http-cookie-name` - имя куки при http/https балансере с включенным sticky-sessions
+ * `load-balancer.hetzner.cloud/http-cookie-lifetime` - время жизни куки при http/https балансере с включенным sticky-sessions
+ * `load-balancer.hetzner.cloud/http-certificates` - Id сертификатов перечисленных через запятую. Только для https протокола
+ * `load-balancer.hetzner.cloud/http-redirect-http` - редирект с http на https. Только для https протокола
+ * `load-balancer.hetzner.cloud/health-check-protocol` (умолчание `tcp`) - протокол для проверок сервиса. Возможные значения: `tcp`, `http`, `https`
+ * `load-balancer.hetzner.cloud/health-check-port` - порт для проверок сервиса
+ * `load-balancer.hetzner.cloud/health-check-interval` - интервал для проверок севриса
+ * `load-balancer.hetzner.cloud/health-check-timeout` - таймаут проверки сервиса
+ * `load-balancer.hetzner.cloud/health-check-retries` - количетсво попыток проверки, прежде чем считать сервис недоступным
+ * `load-balancer.hetzner.cloud/health-check-http-domain` - домен для заголовка `Host` для проверок сервиса
+ * `load-balancer.hetzner.cloud/health-check-http-path` - uri для проверок сервиса
+ * `load-balancer.hetzner.cloud/health-check-http-validate-certificate` - проверять валидность ssl сертификата при проверках сервиса
+ * `load-balancer.hetzner.cloud/http-status-codes` - какие http коды ответов считать успешными при проверках сервиса
+
+ Аннотации из оригинального контроллера `load-balancer.hetzner.cloud/disable-public-network`, `load-balancer.hetzner.cloud/disable-private-ingress`, `load-balancer.hetzner.cloud/use-private-ip` не имеют смысла, поскольку данный контроллер не поддерживает [Hetzner Cloud сети](https://community.hetzner.com/tutorials/hcloud-networks-basic).
+
+## Примеры аннотаций для балансировщика
+Создаем балансировщик в локации `hel1`:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/location: hel1
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud loab-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237283   a0e106866840c401ca5eff56ccb06130   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+
+$ kubectl get svc nginx
+NAME    TYPE           CLUSTER-IP       EXTERNAL-IP                           PORT(S)          AGE
+nginx   LoadBalancer   10.109.210.214   2a01:4f9:c01e:424::1,95.217.172.232   3000:30905/TCP   30m
+```
+
+Для смены локации необходимо пересоздать сервис, что приведет к смене ип адреса балансировщика. Чтобы не указывать каждый раз локацию в аннотации вы можете сделать какую-то локацию по умолчанию передав контроллеру переменную среды `HCLOUD_LOAD_BALANCERS_LOCATION`. 
+
+Если локация не имеет значения, вы можете указать зону:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/network-zone: eu-central
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME                               IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   a526bb12dc33143d69b084c3e2d2e58b   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+```
+
+Для удобства вы можете назначить имя балансировщику, которое будет отображаться в API и веб-инетрфейсе. Это не требует пересоздания сервиса и балансировщика.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+```
+
+Вместо ип адреса в статусе службы k8s, вы можете указать домен:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/hostname: example.com
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb11   hel1       eu-central
+
+$ kubectl get svc nginx
+NAME    TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+nginx   LoadBalancer   10.109.210.214   example.com   3000:30905/TCP   26m
+
+$ kubectl get svc nginx -o yaml
+apiVersion: v1
+kind: Service
+...
+status:
+  loadBalancer:
+    ingress:
+    - hostname: example.com
+```
+
+Если вам не хватает возможностей текущего балансировщика, вы можете взять подороже. Это также не требует пересоздания службы.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/type: lb21
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+  ```
+
+```bash
+$ hcloud load-balancer list
+ID       NAME            IPV4             IPV6                   TYPE   LOCATION   NETWORK ZONE
+237284   nginx-example   95.217.172.232   2a01:4f9:c01e:424::1   lb21   hel1       eu-central
+```
+
+Меняем алгоритм распределения запросов на `least_connections`
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/location: hel1
+    load-balancer.hetzner.cloud/algorithm-type: least_connections
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+
+```bash
+$ hcloud load-balancer describe 237284
+ID:				237284
+Name:				nginx-example
+Public Net:
+  Enabled:			yes
+  IPv4:				95.217.172.232
+  IPv6:				2a01:4f9:c01e:424::1
+Private Net:
+    No Private Network
+Algorithm:			least_connections
+Load Balancer Type:		lb11 (ID: 1)
+...
+```
+
+Меняем протокол на http:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    load-balancer.hetzner.cloud/name: nginx-example
+    load-balancer.hetzner.cloud/protocol: http
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: nginx
+  type: LoadBalancer
+```
+
+```bash
+$ hcloud load-balancer describe 237284
+ID:				237284
+Name:				nginx-example
+Public Net:
+  Enabled:			yes
+  IPv4:				95.217.172.232
+  IPv6:				2a01:4f9:c01e:424::1
+Services:
+  - Protocol:			http
+    Listen Port:		3000
+ ...
+```
+
+
 
 # Лицензия
 

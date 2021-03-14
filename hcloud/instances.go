@@ -23,6 +23,7 @@ import (
 
 	cloudprovider "k8s.io/cloud-provider"
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -36,7 +37,7 @@ func newInstances(client commonClient) *instances {
 }
 
 func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID string) ([]v1.NodeAddress, error) {
-	id, err := providerIDToServerID(providerID)
+	id, err := hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (
 }
 
 func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID string) (string, error) {
-	id, err := providerIDToServerID(providerID)
+	id, err := hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return "", err
 	}
@@ -107,12 +108,12 @@ func (i *instances) CurrentNodeName(ctx context.Context, hostname string) (types
 
 func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID string) (exists bool, err error) {
 	var id int
-	id, err = providerIDToServerID(providerID)
+	id, err = hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return false, err
 	}
 
-	if id == excludeServer.ID {
+	if id == hcops.ExcludeServer.ID {
 		return true, nil
 	}
 
@@ -133,12 +134,12 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 
 func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bool, err error) {
 	var  id int
-	id, err = providerIDToServerID(node.Spec.ProviderID)
+	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return
 	}
 
-	if id == excludeServer.ID {
+	if id == hcops.ExcludeServer.ID {
 		return true, nil
 	}
 
@@ -159,12 +160,12 @@ func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bo
 
 func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (isOff bool, err error) {
 	var id int
-	id, err = providerIDToServerID(providerID)
+	id, err = hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return
 	}
 	
-	if id == excludeServer.ID {
+	if id == hcops.ExcludeServer.ID {
 		return false, nil
 	}
 
@@ -185,12 +186,12 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 func (i instances) InstanceShutdown(ctx context.Context, node *v1.Node) (isOff bool, err error) {
 	var id int
 	
-	id, err = providerIDToServerID(node.Spec.ProviderID)
+	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return
 	}
 
-	if id == excludeServer.ID {
+	if id == hcops.ExcludeServer.ID {
 		return false, nil
 	}
 

@@ -26,38 +26,40 @@ import (
 	"strings"
 	"strconv"
 	"net"
+	"errors"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	hrobot "github.com/nl2go/hrobot-go"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
-	hrobotUserENVVar        = "HROBOT_USER"
-	hrobotPassENVVar        = "HROBOT_PASS"
-	hrobotPeriodENVVar      = "HROBOT_PERIOD"
-	hcloudTokenENVVar       = "HCLOUD_TOKEN"
-	hcloudEndpointENVVar    = "HCLOUD_ENDPOINT"
-	hcloudNetworkENVVar     = "HCLOUD_NETWORK"
-	nodeNameENVVar          = "NODE_NAME"
-	providerNameENVVar      = "PROVIDER_NAME"
-	nameLabelTypeENVVar     = "NAME_LABEL_TYPE"
-	nameCloudNodeENVVar     = "NAME_CLOUD_NODE"
-	nameDedicatedNodeENVVar = "NAME_DEDICATED_NODE"
-	enableSyncLabelsENVVar  = "ENABLE_SYNC_LABELS"
-	providerVersion         = "v0.0.6"
+	hrobotUserENVVar                         = "HROBOT_USER"
+	hrobotPassENVVar                         = "HROBOT_PASS"
+	hrobotPeriodENVVar                       = "HROBOT_PERIOD"
+	hcloudTokenENVVar                        = "HCLOUD_TOKEN"
+	hcloudEndpointENVVar                     = "HCLOUD_ENDPOINT"
+	hcloudNetworkENVVar                      = "HCLOUD_NETWORK"
+	nodeNameENVVar                           = "NODE_NAME"
+	providerNameENVVar                       = "PROVIDER_NAME"
+	nameLabelTypeENVVar                      = "NAME_LABEL_TYPE"
+	nameCloudNodeENVVar                      = "NAME_CLOUD_NODE"
+	nameDedicatedNodeENVVar                  = "NAME_DEDICATED_NODE"
+	enableSyncLabelsENVVar                   = "ENABLE_SYNC_LABELS"
+	hcloudLoadBalancersEnabledENVVar         = "HCLOUD_LOAD_BALANCERS_ENABLED"
+	hcloudLoadBalancersLocation              = "HCLOUD_LOAD_BALANCERS_LOCATION"
+	hcloudLoadBalancersNetworkZone           = "HCLOUD_LOAD_BALANCERS_NETWORK_ZONE"
+	hcloudLoadBalancersDisablePrivateIngress = "HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS"
+	hcloudLoadBalancersUsePrivateIP          = "HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP"
+	providerVersion                          = "v0.0.7"
 )
 
 var (
 	hrobotPeriod = 180
-	nameLabelType = "node.hetzner.com/type"
-	nameCloudNode = "cloud"
-	nameDedicatedNode = "dedicated"
 	enableSyncLabels = true
-	providerName = "hetzner"
-	
 )
 
 type commonClient struct {
@@ -67,11 +69,12 @@ type commonClient struct {
 }
 
 type cloud struct {
-	client    commonClient
-	instances cloudprovider.Instances
-	zones     cloudprovider.Zones
-	routes    cloudprovider.Routes
-	network   int
+	client        commonClient
+	instances     cloudprovider.Instances
+	zones         cloudprovider.Zones
+	routes        cloudprovider.Routes
+	loadBalancer  *loadBalancers
+	network       int
 }
 
 type config struct {
@@ -117,20 +120,11 @@ func readHrobotServers(hrobot hrobot.RobotClient) {
 
 var (
 	cloudConfig *config
-	excludeServer = &hcloud.Server{ 
-		ID: 999999,
-		ServerType: &hcloud.ServerType{Name: "exclude"},
-		Status: hcloud.ServerStatus("running"),
-		Datacenter: &hcloud.Datacenter{
-			Location: &hcloud.Location{
-				Name: "exclude",
-			}, 
-			Name: "exclude",
-		},
-	}
 )
 
 func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
+	const op = "hcloud/newCloud"
+
 	cfg := &config{}
 	if configFile != nil {
         body, err := ioutil.ReadAll(configFile)
@@ -184,16 +178,16 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 	}
 
 	if s:= os.Getenv(providerNameENVVar); s != "" {
-		providerName = s
+		hcops.ProviderName = s
 	}
 	if s := os.Getenv(nameLabelTypeENVVar); s != "" {
-		nameLabelType = s
+		hcops.NameLabelType = s
 	}
 	if s := os.Getenv(nameCloudNodeENVVar); s != "" {
-		nameCloudNode = s
+		hcops.NameCloudNode = s
 	}
 	if s := os.Getenv(nameDedicatedNodeENVVar); s != "" {
-		nameDedicatedNode = s
+		hcops.NameDedicatedNode = s
 	}
 	if s := os.Getenv(enableSyncLabelsENVVar); s == "false" {
 		enableSyncLabels = false
@@ -214,12 +208,35 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("k8s config problem: %s", err.Error())
 	}
 
+	// Load Balancer
+	lbOpsDefaults, lbDisablePrivateIngress, err := loadBalancerDefaultsFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	
+	lbOps := &hcops.LoadBalancerOps{
+		LBClient:      &client.Hcloud.LoadBalancer,
+		CertClient:    &client.Hcloud.Certificate,
+		ActionClient:  &client.Hcloud.Action,
+		NetworkClient: &client.Hcloud.Network,
+		NetworkID:     0,
+		Defaults:      lbOpsDefaults,
+	}
+
+	loadBalancers := newLoadBalancers(lbOps, &client.Hcloud.Action, lbDisablePrivateIngress)
+	if os.Getenv(hcloudLoadBalancersEnabledENVVar) == "false" {
+		loadBalancers = nil
+	}
+
+	fmt.Printf("Hetzner Cloud k8s cloud controller %s started\n", providerVersion)
+
 	return &cloud{
-		client:    client,
-		zones:     newZones(client, nodeName),
-		instances: newInstances(client),
-		routes:    nil,
-		network:   0,
+		client:       client,
+		zones:        newZones(client, nodeName),
+		instances:    newInstances(client),
+		loadBalancer: loadBalancers,
+		routes:       nil,
+		network:      0,
 	}, nil
 }
 
@@ -238,7 +255,10 @@ func (c *cloud) Zones() (cloudprovider.Zones, bool) {
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
-	return nil, false
+	if c.loadBalancer == nil {
+		return nil, false
+	}
+	return c.loadBalancer, true
 }
 
 func (c *cloud) Clusters() (cloudprovider.Clusters, bool) {
@@ -250,7 +270,7 @@ func (c *cloud) Routes() (cloudprovider.Routes, bool) {
 }
 
 func (c *cloud) ProviderName() string {
-	return providerName
+	return hcops.ProviderName
 }
 
 func (c *cloud) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []string) {
@@ -261,8 +281,52 @@ func (c *cloud) HasClusterID() bool {
 	return false
 }
 
+func loadBalancerDefaultsFromEnv() (hcops.LoadBalancerDefaults, bool, error) {
+	defaults := hcops.LoadBalancerDefaults{
+		Location:    os.Getenv(hcloudLoadBalancersLocation),
+		NetworkZone: os.Getenv(hcloudLoadBalancersNetworkZone),
+	}
+
+	if defaults.Location != "" && defaults.NetworkZone != "" {
+		return defaults, false, errors.New(
+			"HCLOUD_LOAD_BALANCERS_LOCATION/HCLOUD_LOAD_BALANCERS_NETWORK_ZONE: Only one of these can be set")
+	}
+
+	disablePrivateIngress, err := getEnvBool(hcloudLoadBalancersDisablePrivateIngress)
+	disablePrivateIngress = true
+	err = nil
+	if err != nil {
+		return defaults, false, err
+	}
+
+	defaults.UsePrivateIP, err = getEnvBool(hcloudLoadBalancersUsePrivateIP)
+	defaults.UsePrivateIP = false
+	err = nil
+	if err != nil {
+		return defaults, false, err
+	}
+
+	return defaults, disablePrivateIngress, nil
+}
+
+// getEnvBool returns the boolean parsed from the environment variable with the given key and a potential error
+// parsing the var. Returns false if the env var is unset.
+func getEnvBool(key string) (bool, error) {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return false, nil
+	}
+
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s: %v", key, err)
+	}
+
+	return b, nil
+}
+
 func init() {
-	cloudprovider.RegisterCloudProvider(providerName, func(config io.Reader) (cloudprovider.Interface, error) {
+	cloudprovider.RegisterCloudProvider(hcops.ProviderName, func(config io.Reader) (cloudprovider.Interface, error) {
 		return newCloud(config)
 	})
 }
