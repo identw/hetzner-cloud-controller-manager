@@ -1,7 +1,7 @@
 Changelog
 =========
 
-v0.0.7-rc
+v0.0.7
 ------
  * Add support LoadBalancer
 
