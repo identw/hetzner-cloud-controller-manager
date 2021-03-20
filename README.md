@@ -11,7 +11,7 @@ This controller is based on [hcloud-cloud-controller-manager](https://github.com
 
 **Note:** In the robot panel, dedicated servers, you need to assign a name that matches the name of the node in the k8s cluster. This is necessary so that the controller can detect the server through the API during the initial initialization of the node. After initialization, the controller will use the server ID.
 
-**Note:** Unlike the original [controller]((https://github.com/hetznercloud/hcloud-cloud-controller-manager)), this controller does not support [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic), because using them it is impossible to build a network between the cloud and dedicated servers. For a network in your cluster consisting of dedicated and cloud servers, you should  use some kind of **cni** plugin, example [kube-router](https://github.com/cloudnativelabs/kube-router) with option `--enable-overlay`. If you need [Hetzner cloud networks](https://community.hetzner.com/tutorials/hcloud-networks-basic) then you should use the original [controller](https://github.com/hetznercloud/hcloud-cloud-controller-manager) and refuse to use dedicated servers in your cluster.
+**Note:** Unlike the original [controller](https://github.com/hetznercloud/hcloud-cloud-controller-manager) this controller does not support [Hetzner Cloud Networks](https://community.hetzner.com/tutorials/hcloud-networks-basic) since it is not technically possible to implement this. Read more in the [why there is no support for hetzner cloud networks](#why-there-is-no-support-for-hetzner-cloud-networks). For a network in your cluster consisting of cloud and dedicated servers, you should use some **cni** plugin that will build an overlay network between servers. For example [kube-router](https://github.com/cloudnativelabs/kube-router) with `--enable-overlay` enabled or [cilium](https://cilium.io/) with` tunnel: vxlan` or `tunnel: geneve`. If you require [Hetzner Cloud Networks](https://community.hetzner.com/tutorials/hcloud-networks-basic) then you should use the original [controller](https://github.com/hetznercloud/hcloud-cloud-controller-manager) and refuse to use dedicated servers in your cluster.
 
 You can find more information about the cloud controller manager in the [kuberentes documentation](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/).
 
@@ -26,6 +26,7 @@ You can find more information about the cloud controller manager in the [kuberen
  * [Load Balancers](#load-balancers)
    - [Annotations](#annotations)
    - [Examples](#examples-of-balancer-annotations)
+ * [Why there is no support for hetzner cloud networks](#why-there-is-no-support-for-hetzner-cloud-networks)
  * [License](#license)
 
 # Example
@@ -620,6 +621,72 @@ Services:
  ...
 ```
 
+# Why there is no support for hetzner cloud networks
+
+Unfortunately, this is not technically possible to implement, since there are restrictions in the settings of hetzner cloud routes.
+
+For example:  
+hetzner cloud network: 10.240.0.0/12, subnet for cloud nodes: 10.240.0.0/24, subnet for connect vswitch (dedicated nodes): 10.240.1.0/24, k8s cluster Pod CIDR: 10.245.0.0/16  
+```
+kube-master121-1 (cloud node, hel-dc2) - public IP: 95.216.201.207, private IP: 10.240.0.2, pod network: 10.245.0.0/24
+kube-worker121-1 (cloud node, hel-dc2) - public IP: 95.216.209.218, private IP: 10.240.0.3,  pod network: 10.245.1.0/24
+kube-worker121-2 (cloud node, hel-dc2) - public IP: 135.181.41.158, private IP: 10.240.0.4, pod network: 10.245.2.0/24
+kube-worker121-10 (dedicated node, hel-dc4) public IP: 135.181.96.131, private IP: 10.240.1.2, pod network: 10.245.3.0/24
+```
+
+Vlan network on kube-worker121-10:
+```
+3: enp34s0.4002@enp34s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue state UP group default qlen 1000
+    link/ether 2c:f0:6d:05:d1:ae brd ff:ff:ff:ff:ff:ff
+    inet 10.240.1.2/24 scope global enp34s0.4002
+       valid_lft forever preferred_lft forever
+    inet6 fe80::2ef0:5dff:fe0d:dcae/64 scope link 
+       valid_lft forever preferred_lft forever
+```
+![image](https://user-images.githubusercontent.com/22338503/111874592-ce69e900-89b7-11eb-8ab8-288840d83f5c.png)
+![image](https://user-images.githubusercontent.com/22338503/111874636-e7729a00-89b7-11eb-9686-6fe438633c11.png)
+
+
+Of course, nodes are connected to each other on the same subnet (10.240.0.0/12). But this is not enough to organize pod-to-pod communication. Since for this you need to be able to create routes for both cloud nodes and dedicated servers.
+
+For example, for node kube-master121-1 has the following routes:
+```
+10.245.1.0/24 via 10.240.0.3 (cloud node kube-worker121-1) - Can be created via API
+10.245.2.0/24 via 10.240.0.4 (cloud node kube-worker121-2) - Can be created via API
+10.245.3.0/24 via 10.240.1.2 (dedicated node kube-worker121-10) - It is impossible to create such a route in any way
+```
+![image](https://user-images.githubusercontent.com/22338503/111875069-a67b8500-89b9-11eb-9b5e-9d85fdbe38ee.png)
+
+
+But I can't create route for dedicated node:
+![image](https://user-images.githubusercontent.com/22338503/111875090-c9a63480-89b9-11eb-8aa2-b349fadaa857.png)
+Routes can only be created for cloud nodes:
+![image](https://user-images.githubusercontent.com/22338503/111875100-dfb3f500-89b9-11eb-8fee-e2b4654d2d4e.png)
+
+Thus, this cannot be achieved since it is impossible to create routes for a network of pods to dedicated servers.
+
+In addition, you hardly want to connect cloud servers with dedicated via vswitch since latency is greatly degraded in comparison with the public network:  
+
+
+ping cloud (kube-master121-1) to dedicated (kube-worker121-10) via public ip:
+```
+$ ping 135.181.96.131
+PING 135.181.96.131 (135.181.96.131) 56(84) bytes of data.
+64 bytes from 135.181.96.131: icmp_seq=1 ttl=59 time=0.442 ms
+64 bytes from 135.181.96.131: icmp_seq=2 ttl=59 time=0.372 ms
+64 bytes from 135.181.96.131: icmp_seq=3 ttl=59 time=0.460 ms
+64 bytes from 135.181.96.131: icmp_seq=4 ttl=59 time=0.539 ms
+```
+ping cloud (kube-master121-1) to dedicated (kube-worker121-10) via vswitch:
+```
+$ ping 10.240.1.2
+PING 10.240.1.2 (10.240.1.2) 56(84) bytes of data.
+64 bytes from 10.240.1.2: icmp_seq=1 ttl=63 time=47.4 ms
+64 bytes from 10.240.1.2: icmp_seq=2 ttl=63 time=47.0 ms
+64 bytes from 10.240.1.2: icmp_seq=3 ttl=63 time=46.9 ms
+64 bytes from 10.240.1.2: icmp_seq=4 ttl=63 time=46.9 ms
+```
+~0.5ms via public network vs ~46.5ms via private network =(.
 
 # License
 

@@ -11,7 +11,7 @@
 
 **На заметку:** В robot панели, dedicated серверам, необходимо назначить имя совпадающее с именем ноды в k8s кластере. Это нужно для того чтобы контроллер смог обнаружить сервер через API, при первичной инициализации ноды. После первичной инициализации контроллер будет использовать ID сервера.
 
-**На заметку:** В отличие от оригинального [контроллера](https://github.com/hetznercloud/hcloud-cloud-controller-manager), этот контроллер не поддерживает [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), поскольку невозможно с помощью них настроить сеть между dedicated и облачным серверами. Для сети в вашем кластере состоящим из облачных и dedicated серверов следует использовать какой-нибудь **cni** плагин, например [kube-router](https://github.com/cloudnativelabs/kube-router) с включенным `--enable-overlay`. Если вам требуются [облачные сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), то вам стоит использовать оригинальный [контроллер](https://github.com/hetznercloud/hcloud-cloud-controller-manager) и отказаться от использования dedicated серверов в вашем кластере.
+**На заметку:** В отличие от оригинального [контроллера](https://github.com/hetznercloud/hcloud-cloud-controller-manager), этот контроллер не поддерживает [облачные сети Hetzner](https://community.hetzner.com/tutorials/hcloud-networks-basic), поскольку нет технической возможности это реализовать. Подробнее смотрите в разделе [почему нет поддержки сетей hetzner cloud](#почему-нет-поддержки-сетей-hetzner-cloud). Для сети в вашем кластере состоящим из облачных и dedicated серверов следует использовать какой-нибудь **cni** плагин, который построет overlay сеть между серверами. Например [kube-router](https://github.com/cloudnativelabs/kube-router) с включенным `--enable-overlay` или [cilium](https://cilium.io/) с `tunnel: vxlan` или `tunnel: geneve`. Если вам требуются [сети Hetzner Cloud](https://community.hetzner.com/tutorials/hcloud-networks-basic), то вам стоит использовать оригинальный [контроллер](https://github.com/hetznercloud/hcloud-cloud-controller-manager) и отказаться от использования dedicated серверов в вашем кластере.
 
 Больше информации о cloud controller manager вы можете найти в [документации kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
 
@@ -27,6 +27,7 @@
  * [Балансировщики нагрузки](#балансировщики-нагрузки)
    - [Аннотации](#аннотации)
    - [Примеры](#примеры-аннотаций-для-балансировщика)
+ * [Почему нет поддержки сетей hetzner cloud](#почему-нет-поддержки-сетей-hetzner-cloud)
  * [Лицензия](#лицензия)
 
 # Примеры
@@ -621,7 +622,71 @@ Services:
  ...
 ```
 
+# Почему нет поддержки сетей hetzner cloud
+К сожалению, реализовать это технически невозможно, так как есть ограничения в возможностях маршрутизации в облаке hetzner.
 
+Например:  
+Облачная подсеть: 10.240.0.0/12, подсеть для облачных узлов: 10.240.0.0/24, подсеть для dedicated узлов vswitch: 10.240.1.0/24, сеть подов кластера k8s: 10.245.0.0/16  
+```
+kube-master121-1 (cloud node, hel-dc2) - public IP: 95.216.201.207, private IP: 10.240.0.2, pod network: 10.245.0.0/24
+kube-worker121-1 (cloud node, hel-dc2) - public IP: 95.216.209.218, private IP: 10.240.0.3,  pod network: 10.245.1.0/24
+kube-worker121-2 (cloud node, hel-dc2) - public IP: 135.181.41.158, private IP: 10.240.0.4, pod network: 10.245.2.0/24
+kube-worker121-10 (dedicated node, hel-dc4) public IP: 135.181.96.131, private IP: 10.240.1.2, pod network: 10.245.3.0/24
+```
+
+Vlan сеть на kube-worker121-10:
+```
+3: enp34s0.4002@enp34s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1400 qdisc noqueue state UP group default qlen 1000
+    link/ether 2c:f0:6d:05:d1:ae brd ff:ff:ff:ff:ff:ff
+    inet 10.240.1.2/24 scope global enp34s0.4002
+       valid_lft forever preferred_lft forever
+    inet6 fe80::2ef0:5dff:fe0d:dcae/64 scope link 
+       valid_lft forever preferred_lft forever
+```
+![image](https://user-images.githubusercontent.com/22338503/111874592-ce69e900-89b7-11eb-8ab8-288840d83f5c.png)
+![image](https://user-images.githubusercontent.com/22338503/111874636-e7729a00-89b7-11eb-9686-6fe438633c11.png)
+
+
+Конечно, это дает возможность объеденить в одну сеть облачные и dedicated сервера. Но этого не достаточно для организации pod-to-pod сети. Так как для этого нужно иметь возможность создавать маршруты как для облачных узлов так и для dedicated серверов.
+
+Например, для ноды kube-master121-1 должны быть такие маршруты:
+```
+10.245.1.0/24 via 10.240.0.3 (cloud node kube-worker121-1) - может бы создан через API
+10.245.2.0/24 via 10.240.0.4 (cloud node kube-worker121-2) - может бы создан через API
+10.245.3.0/24 via 10.240.1.2 (dedicated node kube-worker121-10) - такой маршрут невозможно создать
+```
+![image](https://user-images.githubusercontent.com/22338503/111875069-a67b8500-89b9-11eb-9b5e-9d85fdbe38ee.png)
+
+
+Для dedicated серверов нельзя настраивать маршрты:
+![image](https://user-images.githubusercontent.com/22338503/111875090-c9a63480-89b9-11eb-8aa2-b349fadaa857.png)
+Маршруты могут быть созданы только для облачных нод:
+![image](https://user-images.githubusercontent.com/22338503/111875100-dfb3f500-89b9-11eb-8fee-e2b4654d2d4e.png)
+
+Для dedicated серверов невозможно создать маршруты для сетей pod'ов, поэтому котроллер не поддерживает эту возможность.
+
+Кроме того, вряд ли вам захочется подключать облачные сервера к выделенным через vswitch, поскольку по сравнению с публичной сетью, время задержки значительно ухудшается:  
+
+
+ping из облачноой ноды (kube-master121-1) на dedicated ноду (kube-worker121-10) через публичную сеть:
+```
+$ ping 135.181.96.131
+PING 135.181.96.131 (135.181.96.131) 56(84) bytes of data.
+64 bytes from 135.181.96.131: icmp_seq=1 ttl=59 time=0.442 ms
+64 bytes from 135.181.96.131: icmp_seq=2 ttl=59 time=0.372 ms
+64 bytes from 135.181.96.131: icmp_seq=3 ttl=59 time=0.460 ms
+64 bytes from 135.181.96.131: icmp_seq=4 ttl=59 time=0.539 ms
+```
+ping через vswitch:
+```
+$ ping 10.240.1.2
+PING 10.240.1.2 (10.240.1.2) 56(84) bytes of data.
+64 bytes from 10.240.1.2: icmp_seq=1 ttl=63 time=47.4 ms
+64 bytes from 10.240.1.2: icmp_seq=2 ttl=63 time=47.0 ms
+64 bytes from 10.240.1.2: icmp_seq=3 ttl=63 time=46.9 ms
+64 bytes from 10.240.1.2: icmp_seq=4 ttl=63 time=46.9 ms
+```
+~0.5ms через публичную сеть против ~46.5ms через vswitch =(.
 
 # Лицензия
 
