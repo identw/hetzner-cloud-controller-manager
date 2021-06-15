@@ -21,11 +21,11 @@ import (
 	"os"
 	"strconv"
 
-	cloudprovider "k8s.io/cloud-provider"
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 type instances struct {
@@ -126,14 +126,14 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 	if err != nil {
 		return false, err
 	}
-	
+
 	exists = server != nil
 
 	return exists, nil
 }
 
 func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bool, err error) {
-	var  id int
+	var id int
 	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return
@@ -152,7 +152,7 @@ func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bo
 	if err != nil {
 		return
 	}
-	
+
 	exists = server != nil
 
 	return
@@ -164,7 +164,7 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 	if err != nil {
 		return
 	}
-	
+
 	if id == hcops.ExcludeServer.ID {
 		return false, nil
 	}
@@ -185,7 +185,7 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 
 func (i instances) InstanceShutdown(ctx context.Context, node *v1.Node) (isOff bool, err error) {
 	var id int
-	
+
 	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return

@@ -17,23 +17,23 @@ limitations under the License.
 package hcloud
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"os"
-	"encoding/json"
 	"io/ioutil"
-	"time"
-	"strings"
-	"strconv"
 	"net"
-	"errors"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	hrobot "github.com/nl2go/hrobot-go"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
-	cloudprovider "k8s.io/cloud-provider"
+	hrobot "github.com/nl2go/hrobot-go"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 const (
@@ -58,23 +58,23 @@ const (
 )
 
 var (
-	hrobotPeriod = 180
+	hrobotPeriod     = 180
 	enableSyncLabels = true
 )
 
 type commonClient struct {
-	Hrobot hrobot.RobotClient
-	Hcloud *hcloud.Client
+	Hrobot    hrobot.RobotClient
+	Hcloud    *hcloud.Client
 	K8sClient *kubernetes.Clientset
 }
 
 type cloud struct {
-	client        commonClient
-	instances     cloudprovider.Instances
-	zones         cloudprovider.Zones
-	routes        cloudprovider.Routes
-	loadBalancer  *loadBalancers
-	network       int
+	client       commonClient
+	instances    cloudprovider.Instances
+	zones        cloudprovider.Zones
+	routes       cloudprovider.Routes
+	loadBalancer *loadBalancers
+	network      int
 }
 
 type config struct {
@@ -82,41 +82,41 @@ type config struct {
 }
 
 type HrobotServer struct {
-	ID int
-	Name string
-	Type string
-	Zone string
+	ID     int
+	Name   string
+	Type   string
+	Zone   string
 	Region string
-	IP net.IP
+	IP     net.IP
 }
 
 var hrobotServers []HrobotServer
 
 func readHrobotServers(hrobot hrobot.RobotClient) {
 	go func() {
-			for {
-					servers, err := hrobot.ServerGetList()
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "ERROR: get servers from hrobot: %v\n", err)
-						time.Sleep(time.Duration(hrobotPeriod) * time.Second)
-						continue
-					}
-					var hservers []HrobotServer
-					for _, s := range servers {
-						zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
-						server := HrobotServer{
-							ID: s.ServerNumber,
-							Name: s.ServerName,
-							Type: s.Product,
-							Zone: zone,
-							Region: strings.ToLower(s.Dc),
-							IP: net.ParseIP(s.ServerIP),
-						}
-						hservers = append(hservers, server)
-					}
-					hrobotServers = hservers
-					time.Sleep(time.Duration(hrobotPeriod) * time.Second)
+		for {
+			servers, err := hrobot.ServerGetList()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: get servers from hrobot: %v\n", err)
+				time.Sleep(time.Duration(hrobotPeriod) * time.Second)
+				continue
 			}
+			var hservers []HrobotServer
+			for _, s := range servers {
+				zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
+				server := HrobotServer{
+					ID:     s.ServerNumber,
+					Name:   s.ServerName,
+					Type:   s.Product,
+					Zone:   zone,
+					Region: strings.ToLower(s.Dc),
+					IP:     net.ParseIP(s.ServerIP),
+				}
+				hservers = append(hservers, server)
+			}
+			hrobotServers = hservers
+			time.Sleep(time.Duration(hrobotPeriod) * time.Second)
+		}
 	}()
 }
 
@@ -129,14 +129,14 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 
 	cfg := &config{}
 	if configFile != nil {
-        body, err := ioutil.ReadAll(configFile)
-        if err != nil {
-            return nil, err
-        }
-        err = json.Unmarshal(body, cfg)
-        if err != nil {
-            return nil, err
-        }
+		body, err := ioutil.ReadAll(configFile)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(body, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	cloudConfig = cfg
@@ -179,7 +179,7 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		hrobotPeriod, _ = strconv.Atoi(period)
 	}
 
-	if s:= os.Getenv(providerNameENVVar); s != "" {
+	if s := os.Getenv(providerNameENVVar); s != "" {
 		hcops.ProviderName = s
 	}
 	if s := os.Getenv(nameLabelTypeENVVar); s != "" {
@@ -215,7 +215,7 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	
+
 	lbOps := &hcops.LoadBalancerOps{
 		LBClient:      &client.Hcloud.LoadBalancer,
 		CertClient:    &client.Hcloud.Certificate,
@@ -242,7 +242,8 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 	}, nil
 }
 
-func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {}
+func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, stop <-chan struct{}) {
+}
 
 func (c *cloud) Instances() (cloudprovider.Instances, bool) {
 	return c.instances, true
