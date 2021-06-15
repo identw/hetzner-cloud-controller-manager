@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
-	"github.com/hetznercloud/hcloud-go/hcloud"
 	v1 "k8s.io/api/core/v1"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"

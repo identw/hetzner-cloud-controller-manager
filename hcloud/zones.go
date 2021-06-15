@@ -28,7 +28,7 @@ import (
 )
 
 type zones struct {
-	client commonClient
+	client   commonClient
 	nodeName string // name of the node the programm is running on
 }
 
@@ -39,7 +39,7 @@ func newZones(client commonClient, nodeName string) cloudprovider.Zones {
 func (z zones) GetZone(ctx context.Context) (zone cloudprovider.Zone, err error) {
 	var server *hcloud.Server
 	server, err = getServerByName(ctx, z.client, z.nodeName)
-	
+
 	if err != nil {
 		return
 	}
