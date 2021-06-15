@@ -1,6 +1,10 @@
 Changelog
 =========
 
+v0.0.8
+------
+ * Fixed a bug where a dedicated server could be removed from the cluster if it was unavailable https://robot-ws.your-server.de/server
+
 v0.0.7
 ------
  * Add support LoadBalancer

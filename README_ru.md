@@ -151,11 +151,11 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
-| 1.20.x          | v0.0.7 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy.yaml      |
-| 1.19.x          | v0.0.7 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy.yaml      |
-| 1.18.x          | v0.0.7 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy.yaml      |
-| 1.17.x          | v0.0.7 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy.yaml      |
-| 1.16.x          | v0.0.7-k8s-v1.16.x | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7-k8s-v1.16.x/deploy/deploy.yaml      |
+| 1.20.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
+| 1.19.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
+| 1.18.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
+| 1.17.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
+| 1.16.x          | v0.0.8-k8s-v1.16.x | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8-k8s-v1.16.x/deploy/deploy.yaml      |
 
 # Деплой
 Вам нужно создать токен для доступа к API Hetzner Cloud и к API Hetzner Robot. Для этого следуйте следующим инструкциям:
@@ -185,7 +185,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
@@ -249,7 +249,7 @@ stringData:
 
 Для деплоя с исключением предусмотрен отдельный файл: 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.7/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy-exclude.yaml
 ```
 
 # Переменные среды
