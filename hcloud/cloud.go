@@ -54,7 +54,7 @@ const (
 	hcloudLoadBalancersNetworkZone           = "HCLOUD_LOAD_BALANCERS_NETWORK_ZONE"
 	hcloudLoadBalancersDisablePrivateIngress = "HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS"
 	hcloudLoadBalancersUsePrivateIP          = "HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP"
-	providerVersion                          = "v0.0.7"
+	providerVersion                          = "v0.0.8"
 )
 
 var (
@@ -98,6 +98,8 @@ func readHrobotServers(hrobot hrobot.RobotClient) {
 					servers, err := hrobot.ServerGetList()
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "ERROR: get servers from hrobot: %v\n", err)
+						time.Sleep(time.Duration(hrobotPeriod) * time.Second)
+						continue
 					}
 					var hservers []HrobotServer
 					for _, s := range servers {
