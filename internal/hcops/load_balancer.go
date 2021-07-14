@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
-	"net"
 
-	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
