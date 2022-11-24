@@ -2,7 +2,7 @@ name: build
 on:
   push:
     branches:
-      - master
+      - main
       - develop
       - 'k8s-v*'
     tags:
@@ -18,7 +18,7 @@ jobs:
           IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           echo "IS_TAG=${IS_TAG}"
-          if [[ $(echo ${GITHUB_REF#refs/heads/}) == "master" ]]
+          if [[ $(echo ${GITHUB_REF#refs/heads/}) == "main" ]]
           then
             echo "RELEASE_VERSION=latest" >> $GITHUB_ENV
           elif [[ $(echo ${GITHUB_REF#refs/heads/}) == "develop" ]] 
