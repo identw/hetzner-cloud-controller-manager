@@ -1,4 +1,4 @@
-FROM golang:1.15 as builder
+FROM docker.io/golang:1.18 as builder
 LABEL org.opencontainers.image.source https://github.com/identw/hetzner-cloud-controller-manager
 WORKDIR /maschine-controller/src
 COPY ./go.mod .
@@ -7,7 +7,10 @@ RUN go mod download
 ADD . .
 RUN CGO_ENABLED=0 go build -o hcloud-maschine-controller.bin  .
 
-FROM alpine:3.12
+FROM docker.io/alpine:3.17.0 as certificates
 RUN apk add --no-cache ca-certificates bash
-COPY --from=builder /maschine-controller/src/hcloud-maschine-controller.bin /bin/hcloud-cloud-controller-manager
-ENTRYPOINT ["/bin/hcloud-cloud-controller-manager"]
+
+FROM scratch
+COPY --from=certificates /etc/ssl /etc/ssl
+COPY --from=builder /maschine-controller/src/hcloud-maschine-controller.bin /hcloud-cloud-controller-manager
+ENTRYPOINT ["/hcloud-cloud-controller-manager"]

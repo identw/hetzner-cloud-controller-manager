@@ -160,6 +160,7 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.24.x          | v0.0.9 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.9/deploy/deploy.yaml      |
 | 1.20.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
 | 1.19.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
 | 1.18.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |

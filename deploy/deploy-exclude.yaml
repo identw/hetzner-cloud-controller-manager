@@ -21,11 +21,17 @@ spec:
       dnsPolicy: Default
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/master
-                    operator: Exists
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                - key: node-role.kubernetes.io/master
+                  operator: Exists
+            - weight: 1
+              preference:
+                matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
       tolerations:
         # this taint is set by all kubelets running `--cloud-provider=external`
         # so we should tolerate it to schedule the cloud controller manager
@@ -40,10 +46,9 @@ spec:
         - key: "node.kubernetes.io/not-ready"
           effect: "NoSchedule"
       containers:
-        - image: ghcr.io/identw/hetzner-cloud-controller-manager:v0.0.8
+        - image: ghcr.io/identw/hetzner-cloud-controller-manager:v0.0.9
           name: hetzner-cloud-controller-manager
-          command:
-            - "/bin/hcloud-cloud-controller-manager"
+          args:
             - "--cloud-provider=hetzner"
             - "--leader-elect=true"
             - "--allow-untagged-cloud"
@@ -51,10 +56,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 50Mi
+              memory: 64Mi
             limits:
-              cpu: 200m
-              memory: 100Mi
+              cpu: 100m
+              memory: 64Mi
           securityContext:
             runAsUser: 40801
             runAsGroup: 40801
