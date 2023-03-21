@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
@@ -93,11 +94,16 @@ func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.
 func hrobotGetServerByName(name string) (*hcloud.Server, error) {
 	for _, s := range hrobotServers {
 		if s.Name == name {
+			escapedServerType := s.Type
+			// replace whitespaces in ServerType such as "Server Auction"
+			if regexp.MustCompile(`\s`).MatchString(escapedServerType) {
+				escapedServerType = strings.ReplaceAll(s.Type, " ", "-")
+			}
 			server := &hcloud.Server{
 				ID:         s.ID,
 				Name:       s.Name,
 				PublicNet:  hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
-				ServerType: &hcloud.ServerType{Name: s.Type},
+				ServerType: &hcloud.ServerType{Name: escapedServerType},
 				Status:     hcloud.ServerStatus("running"),
 				Datacenter: &hcloud.Datacenter{Location: &hcloud.Location{Name: s.Zone}, Name: s.Region},
 			}
@@ -111,11 +117,16 @@ func hrobotGetServerByName(name string) (*hcloud.Server, error) {
 func hrobotGetServerByID(id int) (*hcloud.Server, error) {
 	for _, s := range hrobotServers {
 		if s.ID == id {
+			escapedServerType := s.Type
+			// replace whitespaces in ServerType such as "Server Auction"
+			if regexp.MustCompile(`\s`).MatchString(escapedServerType) {
+				escapedServerType = strings.ReplaceAll(s.Type, " ", "-")
+			}
 			server := &hcloud.Server{
 				ID:         s.ID,
 				Name:       s.Name,
 				PublicNet:  hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
-				ServerType: &hcloud.ServerType{Name: s.Type},
+				ServerType: &hcloud.ServerType{Name: escapedServerType},
 				Status:     hcloud.ServerStatus("running"),
 				Datacenter: &hcloud.Datacenter{Location: &hcloud.Location{Name: s.Zone}, Name: s.Region},
 			}
