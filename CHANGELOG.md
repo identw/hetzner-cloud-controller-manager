@@ -1,6 +1,14 @@
 Changelog
 =========
 
+v0.0.10
+------
+ * Fixed a bug where a dedicated server could not be initialized if its type included a space, i.e. `Server Auction`
+ * Added another deployment sample (`deploy-k3s-sample.yml`) with updated `apiVersion` for `ClusterRoleBinding` (as `v1beta1` is unavailable with k3s v1.24), removed `PodSecurityPolicy` (as it is deprecated), changed secret references for the hcloud token (secret `hcloud` might already exist if Hetzners csi is installed) and increased reconciliation-period ([#403](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/403))
+
+v0.0.9
+------
+
 v0.0.8
 ------
  * Fixed a bug where a dedicated server could be removed from the cluster if it was unavailable https://robot-ws.your-server.de/server
