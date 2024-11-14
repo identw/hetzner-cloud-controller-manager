@@ -180,12 +180,15 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string) {
 	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
 	if err == nil {
-		if _, ok := node.ObjectMeta.Labels[hcops.NameLabelType]; !ok {
-			node.ObjectMeta.Labels[hcops.NameLabelType] = typeNode
+		for k, v := range hcops.TypeLabels[typeNode] {
+			if _, ok := node.ObjectMeta.Labels[k]; !ok {
+				node.ObjectMeta.Labels[k] = v
+			}
+			if node.ObjectMeta.Labels[k] != v {
+				node.ObjectMeta.Labels[v] = v
+			}
 		}
-		if node.ObjectMeta.Labels[hcops.NameLabelType] != typeNode {
-			node.ObjectMeta.Labels[hcops.NameLabelType] = typeNode
-		}
+
 		k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	}
 }

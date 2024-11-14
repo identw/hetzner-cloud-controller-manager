@@ -12,6 +12,20 @@ var (
 	NameLabelType = "node.hetzner.com/type"
 	NameCloudNode = "cloud"
 	NameDedicatedNode = "dedicated"
+
+	TypeLabels = map[string]map[string]string{
+		"cloud": map[string]string{
+			"node.hetzner.com/type": "cloud",
+			"instance.hetzner.cloud/provided-by": "cloud",
+			"instance.hetzner.cloud/is-root-server": "false",
+		},
+		"dedicated": map[string]string{
+			"node.hetzner.com/type": "dedicated",
+			"instance.hetzner.cloud/provided-by": "robot",
+			"instance.hetzner.cloud/is-root-server": "true",
+		},
+	}
+
 	ExcludeServer = &hcloud.Server{ 
 		ID: 999999,
 		ServerType: &hcloud.ServerType{Name: "exclude"},
