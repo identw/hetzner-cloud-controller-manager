@@ -10,6 +10,8 @@ import (
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
 	cloudprovider "k8s.io/cloud-provider"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
@@ -30,12 +32,15 @@ type loadBalancers struct {
 	lbOps                        LoadBalancerOps
 	ac                           hcops.HCloudActionClient // Deprecated: should only be referenced by hcops types
 	disablePrivateIngressDefault bool
+	client                       commonClient
+	
 }
 
-func newLoadBalancers(lbOps LoadBalancerOps, ac hcops.HCloudActionClient, disablePrivateIngressDefault bool) *loadBalancers {
+func newLoadBalancers(lbOps LoadBalancerOps, ac hcops.HCloudActionClient, disablePrivateIngressDefault bool, client commonClient) *loadBalancers {
 	return &loadBalancers{
 		lbOps:                        lbOps,
 		ac:                           ac,
+		client:                       client,
 		disablePrivateIngressDefault: disablePrivateIngressDefault,
 	}
 }
@@ -149,6 +154,18 @@ func (l *loadBalancers) EnsureLoadBalancer(
 
 	if err := annotation.LBToService(svc, lb); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if v, ok := annotation.LBHostnameExternalDNS.StringFromService(svc); ok {
+		patch := fmt.Sprintf(`{"metadata":{"annotations":{"external-dns.alpha.kubernetes.io/target":"%s,%s","external-dns.alpha.kubernetes.io/hostname":"%s"}}}`, lb.PublicNet.IPv4.IP.String(), lb.PublicNet.IPv6.IP.String(), v)
+		_, err = l.client.K8sClient.CoreV1().Services(svc.Namespace).Patch(ctx, svc.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		return &v1.LoadBalancerStatus{
+			Ingress: []v1.LoadBalancerIngress{{Hostname: v}},
+		}, nil
 	}
 
 	// Either set the Hostname or the IPs (below).

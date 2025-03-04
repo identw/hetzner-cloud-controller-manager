@@ -42,6 +42,11 @@ const (
 	// specified.
 	LBHostname Name = "load-balancer.hetzner.cloud/hostname"
 
+	// LBHostname specifies the hostname of the Load Balancer. This will be
+	// used as ingress address instead of the Load Balancer IP addresses if
+	// specified.
+	LBHostnameExternalDNS Name = "load-balancer.hetzner.cloud/external-dns-hostname"
+
 	// LBSvcProtocol specifies the protocol of the service. Default: tcp, Possible
 	// values: tcp, http, https
 	LBSvcProtocol Name = "load-balancer.hetzner.cloud/protocol"
