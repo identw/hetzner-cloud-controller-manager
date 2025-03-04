@@ -4,7 +4,7 @@ v0.0.12
 ------
 Add annotation `load-balancer.hetzner.cloud/external-dns-hostname-ipv4-only`
     
-If this annotation is set to a non-empty value, then the annotation `external-dns.alpha.kubernetes.io/target` will contain only
+If this annotation is set to a non-empty value, then the annotation `external-dns.alpha.kubernetes.io/target` will contain only ipv4 address
 
 v0.0.11
 ------
