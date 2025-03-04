@@ -47,6 +47,9 @@ const (
 	// specified.
 	LBHostnameExternalDNS Name = "load-balancer.hetzner.cloud/external-dns-hostname"
 
+
+	LBHostnameExternalDNSIpv4Only Name = "load-balancer.hetzner.cloud/external-dns-hostname-ipv4-only"
+
 	// LBSvcProtocol specifies the protocol of the service. Default: tcp, Possible
 	// values: tcp, http, https
 	LBSvcProtocol Name = "load-balancer.hetzner.cloud/protocol"

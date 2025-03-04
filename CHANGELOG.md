@@ -1,5 +1,11 @@
 Changelog
 =========
+v0.0.12
+------
+Add annotation `load-balancer.hetzner.cloud/external-dns-hostname-ipv4-only`
+    
+If this annotation is set to a non-empty value, then the annotation `external-dns.alpha.kubernetes.io/target` will contain only
+
 v0.0.11
 ------
 * support kube-api v1.32.* (client-go v0.32.2, cloud-provider v0.32.2)

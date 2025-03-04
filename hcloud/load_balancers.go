@@ -157,7 +157,13 @@ func (l *loadBalancers) EnsureLoadBalancer(
 	}
 
 	if v, ok := annotation.LBHostnameExternalDNS.StringFromService(svc); ok {
-		patch := fmt.Sprintf(`{"metadata":{"annotations":{"external-dns.alpha.kubernetes.io/target":"%s,%s","external-dns.alpha.kubernetes.io/hostname":"%s"}}}`, lb.PublicNet.IPv4.IP.String(), lb.PublicNet.IPv6.IP.String(), v)
+
+		ipAddresses := fmt.Sprintf("%s,%s", lb.PublicNet.IPv4.IP.String(), lb.PublicNet.IPv6.IP.String())
+		if _, ok := annotation.LBHostnameExternalDNSIpv4Only.StringFromService(svc); ok {
+			ipAddresses = fmt.Sprintf("%s", lb.PublicNet.IPv4.IP.String())
+		}
+
+		patch := fmt.Sprintf(`{"metadata":{"annotations":{"external-dns.alpha.kubernetes.io/target":"%s","external-dns.alpha.kubernetes.io/hostname":"%s"}}}`, ipAddresses, v)
 		_, err = l.client.K8sClient.CoreV1().Services(svc.Namespace).Patch(ctx, svc.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
