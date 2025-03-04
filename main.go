@@ -22,12 +22,14 @@ import (
 
 	_ "github.com/identw/hetzner-cloud-controller-manager/hcloud"
 
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/app"
 	"k8s.io/cloud-provider/app/config"
+	"k8s.io/cloud-provider/names"
 	"k8s.io/cloud-provider/options"
-	"k8s.io/component-base/cli/flag"
+	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
@@ -37,23 +39,26 @@ import (
 func main() {
 	opts, err := options.NewCloudControllerManagerOptions()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to construct options: %v\n", err)
-		os.Exit(1)
+		klog.Fatalf("unable to initialize command options: %v", err)
 	}
 	opts.Authentication.SkipInClusterLookup = true
 
+	fss := cliflag.NamedFlagSets{}
 	command := app.NewCloudControllerManagerCommand(
 		opts,
 		hetznerInitializer,
 		app.DefaultInitFuncConstructors,
-		flag.NamedFlagSets{},
+		names.CCMControllerAliases(),
+		fss,
 		wait.NeverStop,
 	)
+	pflag.CommandLine.SetNormalizeFunc(cliflag.WordSepNormalizeFunc)
 
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
 	if err := command.Execute(); err != nil {
+		logs.FlushLogs()
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
