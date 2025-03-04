@@ -366,6 +366,8 @@ kube-worker121-1 - облачный сервер, 111.233.1.99 - dedicated се�
 
  * `load-balancer.hetzner.cloud/name` - имя балансировщика, по умолчанию используется случайно сгенерированный id, например `a3767f900602b4c9093823670db0372c`
  * `load-balancer.hetzner.cloud/hostname` - Хостнейм балансировщика, который будет указан в статусе сервиса (service.status.loadBalancer.ingress)
+ * `load-balancer.hetzner.cloud/hostname` - 
+ * `load-balancer.hetzner.cloud/external-dns-hostname` - Хостнейм балансировщика, который будет указан в статусе сервиса (service.status.loadBalancer.ingress). И добавил две аннотации для external-dns: `external-dns.alpha.kubernetes.io/target: <ipv4-address>,<ipv6-address>` and `external-dns.alpha.kubernetes.io/hostname: the value from load-balancer.hetzner.cloud/external-dns-hostname`. Это удобно для автоматического создания DNS записи (как в aws nlb).
  * `load-balancer.hetzner.cloud/protocol` (умолчание: `tcp`) - протокол, возможные значения: `tcp`, `http`, `https`
  * `load-balancer.hetzner.cloud/algorithm-type` (умолчание: `round_robin`) - алгоритм балансировки, возможные значения: `round_robin`, `least_connections`
  * `load-balancer.hetzner.cloud/type` (умолчание: `lb11`) - тип балансировщика, возможные значения: `lb11`, `lb21`, `lb31`

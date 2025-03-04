@@ -159,6 +159,13 @@ status:
 # Version matrix
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.32.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.31.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.30.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.29.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.28.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.26.x          | v0.0.11 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.11/deploy/deploy.yaml      |
+| 1.24.x          | v0.0.10 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.10/deploy/deploy.yaml      |
 | 1.24.x          | v0.0.9 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.9/deploy/deploy.yaml      |
 | 1.20.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
 | 1.19.x          | v0.0.8 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml      |
@@ -365,6 +372,7 @@ You can customize the load balancer through service annotations.
 
  * `load-balancer.hetzner.cloud/name` - is the name of the Load Balancer. The name will be visible in the Hetzner Cloud API console.
  * `load-balancer.hetzner.cloud/hostname` - specifies the hostname of the Load Balancer. This will be used as service.status.loadBalancer.ingress address instead of the Load Balancer IP addresses if specified
+ * `load-balancer.hetzner.cloud/external-dns-hostname` - specifies the hostname of the Load Balancer. This will be used as service.status.loadBalancer.ingress address instead of the Load Balancer IP addresses if specified. And it add two annotations for external-dns: `external-dns.alpha.kubernetes.io/target: <ipv4-address>,<ipv6-address>` and `external-dns.alpha.kubernetes.io/hostname: the value from load-balancer.hetzner.cloud/external-dns-hostname`. This is useful and convenient for automatically create DNS record (like aws nlb).
  * `load-balancer.hetzner.cloud/protocol` (default: `tcp`) - specifies the protocol of the service. Possible values: `tcp`, `http`, `https`.
  * `load-balancer.hetzner.cloud/algorithm-type` (default: `round_robin`) - balancing algorithm possible values: `round_robin`,` least_connections`.
  * `load-balancer.hetzner.cloud/type` (default: `lb11`) - specifies the type of the Load Balancer. Possible values: `lb11`, `lb21`, `lb31`.

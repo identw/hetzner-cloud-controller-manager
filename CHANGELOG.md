@@ -1,5 +1,17 @@
 Changelog
 =========
+v0.0.11
+------
+* support kube-api v1.32.* (client-go v0.32.2, cloud-provider v0.32.2)
+* add support annotation `load-balancer.hetzner.cloud/external-dns-hostname` - specifies the hostname of the Load Balancer. This will be used as service.status.loadBalancer.ingress address instead of the Load Balancer IP addresses if specified. And it add two annotations for external-dns: `external-dns.alpha.kubernetes.io/target: <ipv4-address>,<ipv6-address>` and `external-dns.alpha.kubernetes.io/hostname: the value from load-balancer.hetzner.cloud/external-dns-hostname`. This is useful and convenient for automatically create DNS record (like aws nlb).
+
+v0.0.10
+------
+* kube-api v1.24.8, cluent-go v0.24.8, support kubernetes v1.24.x
+
+v0.0.9
+------
+ * Add labels `instance.hetzner.cloud/provided-by` and `instance.hetzner.cloud/is-root-server` for nodes
 
 v0.0.8
 ------
