@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.0.13
+------
+Fixed a bug with adding labels to nodes
+
 v0.0.12
 ------
 Add annotation `load-balancer.hetzner.cloud/external-dns-hostname-ipv4-only`

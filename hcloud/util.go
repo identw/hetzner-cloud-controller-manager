@@ -185,7 +185,7 @@ func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string)
 				node.ObjectMeta.Labels[k] = v
 			}
 			if node.ObjectMeta.Labels[k] != v {
-				node.ObjectMeta.Labels[v] = v
+				node.ObjectMeta.Labels[k] = v
 			}
 		}
 

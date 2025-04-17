@@ -46,7 +46,7 @@ spec:
         - key: "node.kubernetes.io/not-ready"
           effect: "NoSchedule"
       containers:
-        - image: ghcr.io/identw/hetzner-cloud-controller-manager:v0.0.9
+        - image: ghcr.io/identw/hetzner-cloud-controller-manager:v0.0.13
           name: hetzner-cloud-controller-manager
           args:
             - "--cloud-provider=hetzner"
