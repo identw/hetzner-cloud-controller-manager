@@ -34,15 +34,15 @@
 ```bash
 $ kubectl get node -L node.kubernetes.io/instance-type -L topology.kubernetes.io/region -L topology.kubernetes.io/zone -L node.hetzner.com/type
 NAME               STATUS   ROLES                  AGE     VERSION   INSTANCE-TYPE   REGION   ZONE       TYPE
-kube-master121-1   Ready    control-plane,master   25m     v1.20.4   cx31            hel1     hel1-dc2   cloud
-kube-worker121-1   Ready    <none>                 24m     v1.20.4   cx31            hel1     hel1-dc2   cloud
-kube-worker121-2   Ready    <none>                 9m18s   v1.20.4   AX41-NVMe       hel1     hel1-dc4   dedicated
+kube-master121-1   Ready    control-plane,master   25m     v1.31.10   cx31            hel1     hel1-dc2   cloud
+kube-worker121-1   Ready    <none>                 24m     v1.31.10   cx31            hel1     hel1-dc2   cloud
+kube-worker121-2   Ready    <none>                 9m18s   v1.31.10   AX41-NVMe       hel1     hel1-dc4   dedicated
 
 $ kubectl get node -o wide
 NAME               STATUS   ROLES                  AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-kube-master121-1   Ready    control-plane,master   25m     v1.20.4   <none>        95.131.108.198   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
-kube-worker121-1   Ready    <none>                 25m     v1.20.4   <none>        95.131.234.167   Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
-kube-worker121-2   Ready    <none>                 9m40s   v1.20.4   <none>        111.233.1.99     Ubuntu 20.04.2 LTS   5.4.0-65-generic   containerd://1.2.13
+kube-master121-1   Ready    control-plane,master   25m     v1.31.10   <none>        95.131.108.198   Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
+kube-worker121-1   Ready    <none>                 25m     v1.31.10   <none>        95.131.234.167   Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
+kube-worker121-2   Ready    <none>                 9m40s   v1.31.10   <none>        111.233.1.99     Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
 ```
 
 Dedicated server:
@@ -160,6 +160,7 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.32.x          | v0.0.14 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.31.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.30.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
@@ -203,7 +204,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
@@ -267,7 +268,7 @@ stringData:
 
 Для деплоя с исключением предусмотрен отдельный файл: 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.8/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy-exclude.yaml
 ```
 
 # Переменные среды
@@ -312,9 +313,9 @@ kube-worker121-1             myLabel=myValue
 ```bash
 $ kubectl get node -L myLabel -L node.hetzner.com/type
 NAME               STATUS   ROLES                  AGE   VERSION   MYLABEL   TYPE
-kube-master121-1   Ready    control-plane,master   36m   v1.20.4   myValue   cloud
-kube-worker121-1   Ready    <none>                 35m   v1.20.4   myValue   cloud
-kube-worker121-2   Ready    <none>                 20m   v1.20.4             dedicated
+kube-master121-1   Ready    control-plane,master   36m   v1.31.10   myValue   cloud
+kube-worker121-1   Ready    <none>                 35m   v1.31.10   myValue   cloud
+kube-worker121-2   Ready    <none>                 20m   v1.31.10             dedicated
 ```
 Это поведение можно отключить задав переменную среды `ENABLE_SYNC_LABELS=false`.
 
@@ -328,9 +329,9 @@ kube-worker121-1
 $ sleep 300
 $ kubectl get node -L myLabel -L node.hetzner.com/type
 NAME               STATUS   ROLES                  AGE   VERSION   MYLABEL   TYPE
-kube-master121-1   Ready    control-plane,master   37m   v1.20.4   myValue   cloud
-kube-worker121-1   Ready    <none>                 37m   v1.20.4             cloud
-kube-worker121-2   Ready    <none>                 21m   v1.20.4             dedicated
+kube-master121-1   Ready    control-plane,master   37m   v1.31.10   myValue   cloud
+kube-worker121-1   Ready    <none>                 37m   v1.31.10             cloud
+kube-worker121-2   Ready    <none>                 21m   v1.31.10             dedicated
 ```
 
 Синхронизация происходит не моментально, а с интервалом 5 минут. Это можно изменить через аргумент `--node-status-update-frequency`. Но будте осторожны, есть лимит на количество запросов в API hetzner. Я бы не рекомендовал менять этот параметр.

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -54,7 +54,7 @@ const (
 	hcloudLoadBalancersNetworkZone           = "HCLOUD_LOAD_BALANCERS_NETWORK_ZONE"
 	hcloudLoadBalancersDisablePrivateIngress = "HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS"
 	hcloudLoadBalancersUsePrivateIP          = "HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP"
-	providerVersion                          = "v0.0.13"
+	providerVersion                          = "v0.0.14"
 )
 
 var (
@@ -129,7 +129,7 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 
 	cfg := &config{}
 	if configFile != nil {
-		body, err := ioutil.ReadAll(configFile)
+		body, err := io.ReadAll(configFile)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +142,10 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 	cloudConfig = cfg
 	if len(cloudConfig.ExcludeServers) == 0 {
 		cloudConfig.ExcludeServers = make([]string, 0, 0)
+	}
+
+	for _, s := range cloudConfig.ExcludeServers {
+		klog.InfoS("Exclude server", s)
 	}
 
 	token := os.Getenv(hcloudTokenENVVar)

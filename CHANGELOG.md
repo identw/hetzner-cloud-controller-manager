@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.0.14
+------
+Fixed a bug with exclude servers
+
 v0.0.13
 ------
 Fixed a bug with adding labels to nodes

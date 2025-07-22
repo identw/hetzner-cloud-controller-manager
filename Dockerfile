@@ -8,7 +8,7 @@ RUN go mod download
 ADD . .
 RUN CGO_ENABLED=0 go build -o hcloud-maschine-controller.bin  .
 
-FROM docker.io/alpine:3.21.3 AS certificates
+FROM docker.io/alpine:3.22.1 AS certificates
 RUN apk add --no-cache ca-certificates bash
 
 FROM scratch

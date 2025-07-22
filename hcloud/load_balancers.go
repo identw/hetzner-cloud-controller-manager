@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
@@ -90,7 +91,8 @@ func (l *loadBalancers) EnsureLoadBalancer(
 		lb     *hcloud.LoadBalancer
 		err    error
 	)
-
+	
+	nodes = filterNodes(nodes)
 	nodeNames := make([]string, len(nodes))
 	for i, n := range nodes {
 		nodeNames[i] = n.Name
@@ -236,10 +238,12 @@ func (l *loadBalancers) UpdateLoadBalancer(
 		err error
 	)
 
+	nodes = filterNodes(nodes)
 	nodeNames := make([]string, len(nodes))
 	for i, n := range nodes {
 		nodeNames[i] = n.Name
 	}
+	
 	klog.InfoS("update Load Balancer", "op", op, "service", svc.Name, "nodes", nodeNames)
 
 	lb, err = l.lbOps.GetByK8SServiceUID(ctx, svc)
@@ -294,4 +298,24 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 	}
 
 	return nil
+}
+
+
+func filterNodes(nodes []*v1.Node) []*v1.Node {
+	var result []*v1.Node
+	for _, n := range nodes {
+		if !checkExcludeServer(n.ObjectMeta.Name) {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+func checkExcludeServer(name string) bool {
+	for _, s := range cloudConfig.ExcludeServers {
+		if exclude, _ := regexp.MatchString(s, name); exclude {
+			return true
+		}
+	}
+	return false
 }
