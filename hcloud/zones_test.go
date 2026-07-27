@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hetznercloud/hcloud-go/hcloud/schema"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 )
 
 func TestGetZone(t *testing.T) {
@@ -37,18 +37,15 @@ func TestGetZone(t *testing.T) {
 				{
 					ID:   1,
 					Name: "node15",
-					Datacenter: schema.Datacenter{
-						Name: "fsn1-dc8",
-						Location: schema.Location{
-							Name: "fsn1",
-						},
+					Location: schema.Location{
+						Name: "fsn1",
 					},
 				},
 			},
 		})
 	})
 
-	zones := newZones(env.Client, "node6")
+	zones := newZones(commonClient{Hcloud: env.Client}, "node6")
 	zone, err := zones.GetZone(context.TODO())
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -56,7 +53,7 @@ func TestGetZone(t *testing.T) {
 	if zone.Region != "fsn1" {
 		t.Errorf("Unexpected zone.Region: %s", zone.Region)
 	}
-	if zone.FailureDomain != "fsn1-dc8" {
+	if zone.FailureDomain != "fsn1-dc14" {
 		t.Errorf("Unexpected zone.FailureDomain: %s", zone.FailureDomain)
 	}
 }
@@ -73,18 +70,15 @@ func TestGetZoneForServer(t *testing.T) {
 				{
 					ID:   1,
 					Name: "node15",
-					Datacenter: schema.Datacenter{
-						Name: "fsn1-dc8",
-						Location: schema.Location{
-							Name: "fsn1",
-						},
+					Location: schema.Location{
+						Name: "fsn1",
 					},
 				},
 			},
 		})
 	})
 
-	zones := newZones(env.Client, "node6")
+	zones := newZones(commonClient{Hcloud: env.Client}, "node6")
 	zone, err := zones.GetZoneByNodeName(context.TODO(), "node15")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -92,7 +86,7 @@ func TestGetZoneForServer(t *testing.T) {
 	if zone.Region != "fsn1" {
 		t.Errorf("Unexpected zone.Region: %s", zone.Region)
 	}
-	if zone.FailureDomain != "fsn1-dc8" {
+	if zone.FailureDomain != "fsn1-dc14" {
 		t.Errorf("Unexpected zone.FailureDomain: %s", zone.FailureDomain)
 	}
 }
@@ -105,25 +99,22 @@ func TestGetZoneByProviderID(t *testing.T) {
 			Server: schema.Server{
 				ID:   1,
 				Name: "node15",
-				Datacenter: schema.Datacenter{
-					Name: "fsn1-dc8",
-					Location: schema.Location{
-						Name: "fsn1",
-					},
+				Location: schema.Location{
+					Name: "fsn1",
 				},
 			},
 		})
 	})
 
-	zones := newZones(env.Client, "node6")
-	zone, err := zones.GetZoneByProviderID(context.TODO(), "hcloud://1")
+	zones := newZones(commonClient{Hcloud: env.Client}, "node6")
+	zone, err := zones.GetZoneByProviderID(context.TODO(), "hetzner://1")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	if zone.Region != "fsn1" {
 		t.Errorf("Unexpected zone.Region: %s", zone.Region)
 	}
-	if zone.FailureDomain != "fsn1-dc8" {
+	if zone.FailureDomain != "fsn1-dc14" {
 		t.Errorf("Unexpected zone.FailureDomain: %s", zone.FailureDomain)
 	}
 }

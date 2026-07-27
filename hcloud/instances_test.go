@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/hetznercloud/hcloud-go/hcloud/schema"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -44,8 +44,8 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 		})
 	})
 
-	instances := newInstances(env.Client)
-	addr, err := instances.NodeAddressesByProviderID(context.TODO(), "hcloud://1")
+	instances := newInstances(commonClient{Hcloud: env.Client})
+	addr, err := instances.NodeAddressesByProviderID(context.TODO(), "hetzner://1")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestNodeAddresses(t *testing.T) {
 		})
 	})
 
-	instances := newInstances(env.Client)
+	instances := newInstances(commonClient{Hcloud: env.Client})
 	addr, err := instances.NodeAddresses(context.TODO(), "node15")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -106,7 +106,7 @@ func TestExternalID(t *testing.T) {
 		})
 	})
 
-	instances := newInstances(env.Client)
+	instances := newInstances(commonClient{Hcloud: env.Client})
 	id, err := instances.ExternalID(context.TODO(), "node15")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -135,7 +135,7 @@ func TestInstanceType(t *testing.T) {
 		})
 	})
 
-	instances := newInstances(env.Client)
+	instances := newInstances(commonClient{Hcloud: env.Client})
 	serverType, err := instances.InstanceType(context.TODO(), "node15")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -160,8 +160,8 @@ func TestInstanceTypeByProviderID(t *testing.T) {
 		})
 	})
 
-	instances := newInstances(env.Client)
-	instanceType, err := instances.InstanceTypeByProviderID(context.TODO(), "hcloud://1")
+	instances := newInstances(commonClient{Hcloud: env.Client})
+	instanceType, err := instances.InstanceTypeByProviderID(context.TODO(), "hetzner://1")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -186,8 +186,8 @@ func TestInstanceExistsByProviderID(t *testing.T) {
 			})
 		})
 
-		instances := newInstances(env.Client)
-		exists, err := instances.InstanceExistsByProviderID(context.TODO(), "hcloud://1")
+		instances := newInstances(commonClient{Hcloud: env.Client})
+		exists, err := instances.InstanceExistsByProviderID(context.TODO(), "hetzner://1")
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -209,8 +209,8 @@ func TestInstanceExistsByProviderID(t *testing.T) {
 			})
 		})
 
-		instances := newInstances(env.Client)
-		exists, err := instances.InstanceExistsByProviderID(context.TODO(), "hcloud://1")
+		instances := newInstances(commonClient{Hcloud: env.Client})
+		exists, err := instances.InstanceExistsByProviderID(context.TODO(), "hetzner://1")
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -233,8 +233,8 @@ func TestInstanceShutdownByProviderID(t *testing.T) {
 			})
 		})
 
-		instances := newInstances(env.Client)
-		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hcloud://1")
+		instances := newInstances(commonClient{Hcloud: env.Client})
+		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hetzner://1")
 		if !isOff {
 			t.Errorf("Unexpected isOff state: %v", isOff)
 		}
@@ -255,8 +255,8 @@ func TestInstanceShutdownByProviderID(t *testing.T) {
 			})
 		})
 
-		instances := newInstances(env.Client)
-		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hcloud://1")
+		instances := newInstances(commonClient{Hcloud: env.Client})
+		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hetzner://1")
 		if isOff {
 			t.Errorf("Unexpected isOff state: %v", isOff)
 		}
@@ -279,8 +279,8 @@ func TestInstanceShutdownByProviderID(t *testing.T) {
 			})
 		})
 
-		instances := newInstances(env.Client)
-		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hcloud://1")
+		instances := newInstances(commonClient{Hcloud: env.Client})
+		isOff, err := instances.InstanceShutdownByProviderID(context.TODO(), "hetzner://1")
 		if isOff {
 			t.Errorf("Unexpected isOff state: %v", isOff)
 		}
@@ -293,7 +293,7 @@ func TestInstanceShutdownByProviderID(t *testing.T) {
 func TestCurrentNodeName(t *testing.T) {
 	env := newTestEnv()
 	defer env.Teardown()
-	instances := newInstances(env.Client)
+	instances := newInstances(commonClient{Hcloud: env.Client})
 	nodeName, err := instances.CurrentNodeName(context.TODO(), "hostname")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)

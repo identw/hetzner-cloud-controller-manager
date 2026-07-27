@@ -3,7 +3,7 @@ package annotation
 import (
 	"fmt"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -169,8 +169,12 @@ func LBToService(svc *v1.Service, lb *hcloud.LoadBalancer) error {
 	sa.Annotate(LBAlgorithmType, lb.Algorithm.Type)
 	sa.Annotate(LBLocation, lb.Location.Name)
 	sa.Annotate(LBNetworkZone, lb.Location.NetworkZone)
-	sa.Annotate(LBPublicIPv4, lb.PublicNet.IPv4.IP)
-	sa.Annotate(LBPublicIPv6, lb.PublicNet.IPv6.IP)
+	if lb.PublicNet.IPv4.IP != nil && !lb.PublicNet.IPv4.IP.IsUnspecified() {
+		sa.Annotate(LBPublicIPv4, lb.PublicNet.IPv4.IP.String())
+	}
+	if lb.PublicNet.IPv6.IP != nil && !lb.PublicNet.IPv6.IP.IsUnspecified() {
+		sa.Annotate(LBPublicIPv6, lb.PublicNet.IPv6.IP.String())
+	}
 
 	for _, hclbService := range lb.Services {
 		var found bool

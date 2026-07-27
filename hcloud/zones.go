@@ -17,12 +17,11 @@ limitations under the License.
 package hcloud
 
 import (
-	// "fmt"
-	// "os"
 	"context"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/legacydatacenter"
 	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
 )
@@ -48,7 +47,7 @@ func (z zones) GetZone(ctx context.Context) (zone cloudprovider.Zone, err error)
 }
 
 func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (zone cloudprovider.Zone, err error) {
-	var id int
+	var id int64
 	if id, err = hcops.ProviderIDToServerID(providerID); err != nil {
 		return
 	}
@@ -72,8 +71,15 @@ func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (
 }
 
 func zoneFromServer(server *hcloud.Server) (zone cloudprovider.Zone) {
+	region := server.Location.Name
+	failureDomain := legacydatacenter.NameFromLocation(region)
+	if server.Labels != nil {
+		if dc, ok := server.Labels[hcops.RobotDatacenterLabel]; ok && dc != "" {
+			failureDomain = dc
+		}
+	}
 	return cloudprovider.Zone{
-		Region:        server.Datacenter.Location.Name,
-		FailureDomain: server.Datacenter.Name,
+		Region:        region,
+		FailureDomain: failureDomain,
 	}
 }

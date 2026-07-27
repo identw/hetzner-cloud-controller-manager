@@ -17,14 +17,13 @@ limitations under the License.
 package hcloud
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 )
 
 type testEnv struct {
@@ -46,7 +45,13 @@ func newTestEnv() testEnv {
 	client := hcloud.NewClient(
 		hcloud.WithEndpoint(server.URL),
 		hcloud.WithToken("token"),
-		hcloud.WithBackoffFunc(func(_ int) time.Duration { return 0 }),
+		hcloud.WithPollOpts(hcloud.PollOpts{
+			BackoffFunc: hcloud.ConstantBackoff(0),
+		}),
+		hcloud.WithRetryOpts(hcloud.RetryOpts{
+			BackoffFunc: hcloud.ConstantBackoff(0),
+			MaxRetries:  5,
+		}),
 	)
 	return testEnv{
 		Server: server,
@@ -55,80 +60,63 @@ func newTestEnv() testEnv {
 	}
 }
 
-func TestNewCloud(t *testing.T) {
-	os.Setenv("HCLOUD_TOKEN", "test")
-	os.Setenv("NODE_NAME", "test")
+func TestCloudInterfaces(t *testing.T) {
+	c := &cloud{
+		instances:    newInstances(commonClient{}),
+		zones:        newZones(commonClient{}, "node"),
+		loadBalancer: newLoadBalancers(&mockLoadBalancerOps{}, nil, true, commonClient{}),
+	}
 
-	var config bytes.Buffer
-	_, err := newCloud(&config)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+	if _, ok := c.Instances(); !ok {
+		t.Error("Instances should be supported")
+	}
+	if _, ok := c.Zones(); !ok {
+		t.Error("Zones should be supported")
+	}
+	if _, ok := c.LoadBalancer(); !ok {
+		t.Error("LoadBalancer should be supported when configured")
+	}
+	if _, ok := c.Clusters(); ok {
+		t.Error("Clusters should not be supported")
+	}
+	if _, ok := c.Routes(); ok {
+		t.Error("Routes should not be supported")
+	}
+	if c.HasClusterID() {
+		t.Error("HasClusterID should be false")
+	}
+	if c.ProviderName() != hcops.ProviderName {
+		t.Errorf("ProviderName = %q", c.ProviderName())
 	}
 }
 
-func TestCloud(t *testing.T) {
-	os.Setenv("HCLOUD_TOKEN", "test")
-	os.Setenv("NODE_NAME", "test")
-	var config bytes.Buffer
-	cloud, err := newCloud(&config)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+func TestCloudLoadBalancerDisabled(t *testing.T) {
+	c := &cloud{}
+	if _, ok := c.LoadBalancer(); ok {
+		t.Error("LoadBalancer should be unsupported when nil")
 	}
+}
 
-	t.Run("Instances", func(t *testing.T) {
-		_, supported := cloud.Instances()
-		if !supported {
-			t.Error("Instances interface should be supported")
-		}
-	})
+func TestNewCloud_RequiresEnv(t *testing.T) {
+	t.Setenv("HCLOUD_TOKEN", "")
+	t.Setenv("NODE_NAME", "")
+	t.Setenv("HROBOT_USER", "")
+	t.Setenv("HROBOT_PASS", "")
 
-	t.Run("Zones", func(t *testing.T) {
-		_, supported := cloud.Zones()
-		if !supported {
-			t.Error("Zones interface should be supported")
-		}
-	})
+	_, err := newCloud(nil)
+	if err == nil {
+		t.Fatal("expected error when required env is missing")
+	}
+}
 
-	t.Run("LoadBalancer", func(t *testing.T) {
-		_, supported := cloud.LoadBalancer()
-		if supported {
-			t.Error("LoadBalancer interface should not be supported")
-		}
-	})
+func TestNewCloud_RequiresRobotCredentials(t *testing.T) {
+	t.Setenv("HCLOUD_TOKEN", "token")
+	t.Setenv("NODE_NAME", "node")
+	_ = os.Unsetenv("HROBOT_USER")
+	_ = os.Unsetenv("HROBOT_PASS")
 
-	t.Run("Clusters", func(t *testing.T) {
-		_, supported := cloud.Clusters()
-		if supported {
-			t.Error("Clusters interface should not be supported")
-		}
-	})
-
-	t.Run("Routes", func(t *testing.T) {
-		_, supported := cloud.Routes()
-		if supported {
-			t.Error("Routes interface should not be supported")
-		}
-	})
-
-	t.Run("RoutesWithNetworks", func(t *testing.T) {
-		os.Setenv("HCLOUD_NETWORK", "1")
-		os.Setenv("HCLOUD_ENDPOINT", "http://127.0.0.1:4000/v1") // We need the mock server for testing this
-		c, _ := newCloud(&config)
-		_, supported := c.Routes()
-		if !supported {
-			t.Error("Routes interface should be supported")
-		}
-	})
-
-	t.Run("HasClusterID", func(t *testing.T) {
-		if cloud.HasClusterID() {
-			t.Error("HasClusterID should be false")
-		}
-	})
-
-	t.Run("ProviderName", func(t *testing.T) {
-		if cloud.ProviderName() != "hcloud" {
-			t.Error("ProviderName should be hcloud")
-		}
-	})
+	_, err := newCloud(nil)
+	if err == nil {
+		t.Fatal("expected error when robot credentials missing")
+	}
 }

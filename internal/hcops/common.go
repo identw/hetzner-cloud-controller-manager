@@ -1,46 +1,48 @@
 package hcops
 
 import (
-	"strings"
-	"strconv"
 	"fmt"
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"strconv"
+	"strings"
+
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 var (
-	ProviderName = "hetzner"
-	NameLabelType = "node.hetzner.com/type"
-	NameCloudNode = "cloud"
+	ProviderName      = "hetzner"
+	NameLabelType     = "node.hetzner.com/type"
+	NameCloudNode     = "cloud"
 	NameDedicatedNode = "dedicated"
 
 	TypeLabels = map[string]map[string]string{
-		"cloud": map[string]string{
-			"node.hetzner.com/type": "cloud",
-			"instance.hetzner.cloud/provided-by": "cloud",
+		"cloud": {
+			"node.hetzner.com/type":               "cloud",
+			"instance.hetzner.cloud/provided-by":  "cloud",
 			"instance.hetzner.cloud/is-root-server": "false",
 		},
-		"dedicated": map[string]string{
-			"node.hetzner.com/type": "dedicated",
-			"instance.hetzner.cloud/provided-by": "robot",
+		"dedicated": {
+			"node.hetzner.com/type":                 "dedicated",
+			"instance.hetzner.cloud/provided-by":    "robot",
 			"instance.hetzner.cloud/is-root-server": "true",
 		},
 	}
 
-	ExcludeServer = &hcloud.Server{ 
-		ID: 999999,
+	ExcludeServer = &hcloud.Server{
+		ID:         999999,
 		ServerType: &hcloud.ServerType{Name: "exclude"},
-		Status: hcloud.ServerStatus("running"),
-		Datacenter: &hcloud.Datacenter{
-			Location: &hcloud.Location{
-				Name: "exclude",
-			}, 
+		Status:     hcloud.ServerStatus("running"),
+		Location: &hcloud.Location{
 			Name: "exclude",
 		},
 	}
 )
 
-func ProviderIDToServerID(providerID string) (id int, err error) {
-	if providerID == strconv.Itoa(ExcludeServer.ID) {
+// RobotDatacenterLabel stores the original Robot DC name on synthetic servers
+// so zone labels stay stable after Server.Datacenter was removed from the API.
+const RobotDatacenterLabel = "ccm.hetzner.local/robot-datacenter"
+
+func ProviderIDToServerID(providerID string) (id int64, err error) {
+	if providerID == strconv.FormatInt(ExcludeServer.ID, 10) {
 		return ExcludeServer.ID, nil
 	}
 	providerPrefix := ProviderName + "://"
@@ -55,6 +57,6 @@ func ProviderIDToServerID(providerID string) (id int, err error) {
 		return
 	}
 
-	id, err = strconv.Atoi(idString)
+	id, err = strconv.ParseInt(idString, 10, 64)
 	return
 }

@@ -18,10 +18,11 @@ package hcloud
 
 import (
 	"context"
+	"net"
 	"os"
 	"strconv"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,7 +75,7 @@ func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (st
 	if err != nil {
 		return "", err
 	}
-	return strconv.Itoa(server.ID), nil
+	return strconv.FormatInt(server.ID, 10), nil
 }
 
 func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (string, error) {
@@ -107,7 +108,7 @@ func (i *instances) CurrentNodeName(ctx context.Context, hostname string) (types
 }
 
 func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID string) (exists bool, err error) {
-	var id int
+	var id int64
 	id, err = hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return false, err
@@ -133,7 +134,7 @@ func (i instances) InstanceExistsByProviderID(ctx context.Context, providerID st
 }
 
 func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bool, err error) {
-	var id int
+	var id int64
 	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
 		return
@@ -159,7 +160,7 @@ func (i instances) InstanceExists(ctx context.Context, node *v1.Node) (exists bo
 }
 
 func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (isOff bool, err error) {
-	var id int
+	var id int64
 	id, err = hcops.ProviderIDToServerID(providerID)
 	if err != nil {
 		return
@@ -184,7 +185,7 @@ func (i instances) InstanceShutdownByProviderID(ctx context.Context, providerID 
 }
 
 func (i instances) InstanceShutdown(ctx context.Context, node *v1.Node) (isOff bool, err error) {
-	var id int
+	var id int64
 
 	id, err = hcops.ProviderIDToServerID(node.Spec.ProviderID)
 	if err != nil {
@@ -211,24 +212,37 @@ func (i instances) InstanceShutdown(ctx context.Context, node *v1.Node) (isOff b
 
 func (i *instances) nodeAddresses(ctx context.Context, server *hcloud.Server) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
-	addresses = append(
-		addresses,
-		v1.NodeAddress{Type: v1.NodeHostName, Address: server.Name},
-		v1.NodeAddress{Type: v1.NodeExternalIP, Address: server.PublicNet.IPv4.IP.String()},
-	)
+	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: server.Name})
+
+	// Avoid net.IP.String() == "<nil>" when the server has no public IPv4.
+	if !server.PublicNet.IPv4.IsUnspecified() {
+		addresses = append(addresses, v1.NodeAddress{
+			Type:    v1.NodeExternalIP,
+			Address: server.PublicNet.IPv4.IP.String(),
+		})
+	}
+	if !server.PublicNet.IPv6.IsUnspecified() {
+		// API returns the IPv6 network; instance address is network + ::1.
+		host := append(net.IP(nil), server.PublicNet.IPv6.IP...)
+		host[len(host)-1] |= 0x01
+		addresses = append(addresses, v1.NodeAddress{
+			Type:    v1.NodeExternalIP,
+			Address: host.String(),
+		})
+	}
+
 	n := os.Getenv(hcloudNetworkENVVar)
 	if len(n) > 0 {
 		network, _, _ := i.client.Hcloud.Network.Get(ctx, n)
 		if network != nil {
 			for _, privateNet := range server.PrivateNet {
-				if privateNet.Network.ID == network.ID {
+				if privateNet.Network != nil && privateNet.Network.ID == network.ID && privateNet.IP != nil {
 					addresses = append(
 						addresses,
 						v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateNet.IP.String()},
 					)
 				}
 			}
-
 		}
 	}
 	return addresses, nil

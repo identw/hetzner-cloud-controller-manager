@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
+	"strings"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
@@ -20,7 +22,7 @@ import (
 // the hcloud-cloud-controller-manager.
 type LoadBalancerOps interface {
 	GetByName(ctx context.Context, name string) (*hcloud.LoadBalancer, error)
-	GetByID(ctx context.Context, id int) (*hcloud.LoadBalancer, error)
+	GetByID(ctx context.Context, id int64) (*hcloud.LoadBalancer, error)
 	GetByK8SServiceUID(ctx context.Context, svc *v1.Service) (*hcloud.LoadBalancer, error)
 	Create(ctx context.Context, lbName string, service *v1.Service) (*hcloud.LoadBalancer, error)
 	Delete(ctx context.Context, lb *hcloud.LoadBalancer) error
@@ -65,14 +67,7 @@ func (l *loadBalancers) GetLoadBalancer(
 		}, true, nil
 	}
 
-	return &v1.LoadBalancerStatus{Ingress: []v1.LoadBalancerIngress{
-		{
-			IP: lb.PublicNet.IPv4.IP.String(),
-		},
-		{
-			IP: lb.PublicNet.IPv6.IP.String(),
-		},
-	}}, true, nil
+	return &v1.LoadBalancerStatus{Ingress: lbIngressIPs(lb)}, true, nil
 }
 
 func (l *loadBalancers) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
@@ -160,9 +155,9 @@ func (l *loadBalancers) EnsureLoadBalancer(
 
 	if v, ok := annotation.LBHostnameExternalDNS.StringFromService(svc); ok {
 
-		ipAddresses := fmt.Sprintf("%s,%s", lb.PublicNet.IPv4.IP.String(), lb.PublicNet.IPv6.IP.String())
+		ipAddresses := joinNonEmpty(",", ipString(lb.PublicNet.IPv4.IP), ipString(lb.PublicNet.IPv6.IP))
 		if _, ok := annotation.LBHostnameExternalDNSIpv4Only.StringFromService(svc); ok {
-			ipAddresses = fmt.Sprintf("%s", lb.PublicNet.IPv4.IP.String())
+			ipAddresses = ipString(lb.PublicNet.IPv4.IP)
 		}
 
 		patch := fmt.Sprintf(`{"metadata":{"annotations":{"external-dns.alpha.kubernetes.io/target":"%s","external-dns.alpha.kubernetes.io/hostname":"%s"}}}`, ipAddresses, v)
@@ -193,14 +188,7 @@ func (l *loadBalancers) EnsureLoadBalancer(
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	if !disablePubNet {
-		ingress = append(ingress,
-			v1.LoadBalancerIngress{
-				IP: lb.PublicNet.IPv4.IP.String(),
-			},
-			v1.LoadBalancerIngress{
-				IP: lb.PublicNet.IPv6.IP.String(),
-			},
-		)
+		ingress = append(ingress, lbPublicIngressIPs(lb)...)
 	}
 
 	disablePrivIngress, err := l.getDisablePrivateIngress(svc)
@@ -209,7 +197,9 @@ func (l *loadBalancers) EnsureLoadBalancer(
 	}
 	if !disablePrivIngress {
 		for _, nw := range lb.PrivateNet {
-			ingress = append(ingress, v1.LoadBalancerIngress{IP: nw.IP.String()})
+			if s := ipString(nw.IP); s != "" {
+				ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
+			}
 		}
 	}
 
@@ -312,10 +302,47 @@ func filterNodes(nodes []*v1.Node) []*v1.Node {
 }
 
 func checkExcludeServer(name string) bool {
+	if cloudConfig == nil {
+		return false
+	}
 	for _, s := range cloudConfig.ExcludeServers {
 		if exclude, _ := regexp.MatchString(s, name); exclude {
 			return true
 		}
 	}
 	return false
+}
+
+// ipString returns a printable IP or "" when ip is nil/unspecified.
+// net.IP.String() returns the literal "<nil>" for a nil IP slice.
+func ipString(ip net.IP) string {
+	if ip == nil || ip.IsUnspecified() {
+		return ""
+	}
+	return ip.String()
+}
+
+func lbPublicIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
+	var ingress []v1.LoadBalancerIngress
+	if s := ipString(lb.PublicNet.IPv4.IP); s != "" {
+		ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
+	}
+	if s := ipString(lb.PublicNet.IPv6.IP); s != "" {
+		ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
+	}
+	return ingress
+}
+
+func lbIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
+	return lbPublicIngressIPs(lb)
+}
+
+func joinNonEmpty(sep string, parts ...string) string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, sep)
 }
