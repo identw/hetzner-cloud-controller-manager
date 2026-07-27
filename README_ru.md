@@ -385,7 +385,7 @@ kube-worker121-1 - облачный сервер, 111.233.1.99 - dedicated се�
  * `load-balancer.hetzner.cloud/type` (умолчание: `lb11`) - тип балансировщика, возможные значения: `lb11`, `lb21`, `lb31`
  * `load-balancer.hetzner.cloud/location` - локация, возможные значения: `fsn1`, `ngb1`, `hel1`. Взаимоисключающая с `load-balancer.hetzner.cloud/network-zone`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_LOCATION`. Смена локции требует пересоздание службы и смену ип адреса.
  * `load-balancer.hetzner.cloud/network-zone` - зона, возможные значения: `eu-central`. Взаимоисключающая с `load-balancer.hetzner.cloud/location`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`
- * `load-balancer.hetzner.cloud/uses-proxyprotocol` (умолчание `false`) - включить proxy protocol. Требует поддержку со стороны приложения
+ * `load-balancer.hetzner.cloud/uses-proxyprotocol` (умолчание `false`) - включить proxy protocol. Требует поддержку со стороны приложения. При включении выставляет `service.status.loadBalancer.ingress[].ipMode` в `Proxy` для IP-записей, чтобы kube-proxy не шунтировал трафик мимо балансировщика.
  * `load-balancer.hetzner.cloud/http-sticky-sessions` - включить sticky-sessions с привязкой к куке
  * `load-balancer.hetzner.cloud/http-cookie-name` - имя куки при http/https балансере с включенным sticky-sessions
  * `load-balancer.hetzner.cloud/http-cookie-lifetime` - время жизни куки при http/https балансере с включенным sticky-sessions

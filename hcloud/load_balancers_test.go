@@ -125,11 +125,116 @@ func TestLoadBalancers_GetLoadBalancer(t *testing.T) {
 	if len(status.Ingress) != 2 || status.Ingress[0].IP != "203.0.113.42" {
 		t.Fatalf("unexpected status: %#v", status)
 	}
+	for _, ing := range status.Ingress {
+		if ing.IPMode != nil {
+			t.Fatalf("expected nil IPMode without proxy protocol, got %#v", ing.IPMode)
+		}
+	}
 
 	svc.Annotations = map[string]string{string(annotation.LBHostname): "lb.example.com"}
 	status, exists, err = l.GetLoadBalancer(context.Background(), "c", svc)
 	if err != nil || !exists || status.Ingress[0].Hostname != "lb.example.com" {
 		t.Fatalf("hostname status=%#v exists=%v err=%v", status, exists, err)
+	}
+	if status.Ingress[0].IPMode != nil {
+		t.Fatalf("hostname ingress must not set IPMode: %#v", status.Ingress[0])
+	}
+}
+
+func TestLoadBalancers_GetLoadBalancer_ProxyProtocolSetsIPMode(t *testing.T) {
+	ops := &mockLoadBalancerOps{
+		getByUIDFn: func(ctx context.Context, svc *v1.Service) (*hcloud.LoadBalancer, error) {
+			return sampleLB(), nil
+		},
+	}
+	l := newLoadBalancers(ops, nil, true, commonClient{})
+	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: "svc",
+		UID:  "u1",
+		Annotations: map[string]string{
+			string(annotation.LBSvcProxyProtocol): "true",
+		},
+	}}
+
+	status, exists, err := l.GetLoadBalancer(context.Background(), "c", svc)
+	if err != nil || !exists {
+		t.Fatalf("exists=%v err=%v", exists, err)
+	}
+	if len(status.Ingress) != 2 {
+		t.Fatalf("unexpected ingress: %#v", status.Ingress)
+	}
+	for _, ing := range status.Ingress {
+		if ing.IP == "" {
+			t.Fatalf("expected IP ingress: %#v", ing)
+		}
+		if ing.IPMode == nil || *ing.IPMode != v1.LoadBalancerIPModeProxy {
+			t.Fatalf("expected IPMode=Proxy, got %#v", ing.IPMode)
+		}
+	}
+
+	// Hostname takes precedence; ipMode must not be set without ip.
+	svc.Annotations[string(annotation.LBHostname)] = "lb.example.com"
+	status, exists, err = l.GetLoadBalancer(context.Background(), "c", svc)
+	if err != nil || !exists || status.Ingress[0].Hostname != "lb.example.com" {
+		t.Fatalf("hostname status=%#v exists=%v err=%v", status, exists, err)
+	}
+	if status.Ingress[0].IPMode != nil {
+		t.Fatalf("hostname ingress must not set IPMode: %#v", status.Ingress[0])
+	}
+}
+
+func TestLoadBalancers_EnsureLoadBalancer_ProxyProtocolSetsIPMode(t *testing.T) {
+	origConfig := cloudConfig
+	t.Cleanup(func() { cloudConfig = origConfig })
+	cloudConfig = &config{}
+
+	ops := &mockLoadBalancerOps{}
+	l := newLoadBalancers(ops, nil, true, commonClient{})
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			UID:       "uid-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				string(annotation.LBSvcProxyProtocol): "true",
+			},
+		},
+		Spec: v1.ServiceSpec{Ports: []v1.ServicePort{{Port: 80}}},
+	}
+
+	status, err := l.EnsureLoadBalancer(context.Background(), "cluster", svc, nil)
+	if err != nil {
+		t.Fatalf("EnsureLoadBalancer: %v", err)
+	}
+	if len(status.Ingress) < 1 {
+		t.Fatalf("unexpected status: %#v", status)
+	}
+	for _, ing := range status.Ingress {
+		if ing.IP == "" {
+			continue
+		}
+		if ing.IPMode == nil || *ing.IPMode != v1.LoadBalancerIPModeProxy {
+			t.Fatalf("expected IPMode=Proxy, got %#v", ing.IPMode)
+		}
+	}
+}
+
+func TestApplyProxyIPMode(t *testing.T) {
+	ingress := []v1.LoadBalancerIngress{
+		{IP: "203.0.113.1"},
+		{Hostname: "lb.example.com"},
+	}
+	got := applyProxyIPMode(ingress, false)
+	if got[0].IPMode != nil || got[1].IPMode != nil {
+		t.Fatalf("expected nil IPMode when proxy disabled: %#v", got)
+	}
+
+	got = applyProxyIPMode(ingress, true)
+	if got[0].IPMode == nil || *got[0].IPMode != v1.LoadBalancerIPModeProxy {
+		t.Fatalf("expected Proxy on IP entry: %#v", got[0])
+	}
+	if got[1].IPMode != nil {
+		t.Fatalf("hostname entry must keep nil IPMode: %#v", got[1])
 	}
 }
 

@@ -20,6 +20,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          set -x
 
           # Package name matches docker push path: owner/repo (lowercased).
           # GitHub Packages API encodes "/" as %2F.
