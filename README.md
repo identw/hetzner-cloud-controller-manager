@@ -159,8 +159,16 @@ status:
 # Version matrix
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.36.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.35.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.34.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.14 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.31.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
@@ -205,7 +213,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Deployment controller:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml
 ```
 
 Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
@@ -267,7 +275,7 @@ It is very important to run kubelet on such servers WITHOUT the `--cloud-provide
 
 For deployment with exclude servers, a separate file is provided:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy-exclude.yaml
 ```
 
 # Evnironment variables
@@ -382,7 +390,7 @@ You can customize the load balancer through service annotations.
  * `load-balancer.hetzner.cloud/type` (default: `lb11`) - specifies the type of the Load Balancer. Possible values: `lb11`, `lb21`, `lb31`.
  * `load-balancer.hetzner.cloud/location` - specifies the location where the Load Balancer will be created in. Changing the location to a different value after the load balancer was created has no effect. In order to move a load balancer to a different location it is necessary to delete and re-create it. Note, that this will lead to the load balancer getting new public IPs assigned. Mutually exclusive with `load-balancer.hetzner.cloud/network-zone`. Possible values: `fsn1`, `ngb1`, `hel1`. You can set the default using the `HCLOUD_LOAD_BALANCERS_LOCATION` environment variable.
  * `load-balancer.hetzner.cloud/network-zone` - specifies the network zone where the Load Balancer will be created in. Changing the network zone to a different value after the load balancer was created has no effect.  In order to move a load balancer to a different network zone it is necessary to delete and re-create it. Note, that this will lead to the load balancer getting new public IPs assigned. Mutually exclusive with `load-balancer.hetzner.cloud/location`. Possible values: `eu-central`. You can set the default using the `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE` environment variable.
- * `load-balancer.hetzner.cloud/uses-proxyprotocol` (default: `false`) - specifies if the Load Balancer services should use the proxy protocol.
+ * `load-balancer.hetzner.cloud/uses-proxyprotocol` (default: `false`) - specifies if the Load Balancer services should use the proxy protocol. When enabled, sets `service.status.loadBalancer.ingress[].ipMode` to `Proxy` for IP entries so kube-proxy does not bypass the load balancer.
  * `load-balancer.hetzner.cloud/http-sticky-sessions`(default: `false`) - enables the sticky sessions feature of Hetzner Cloud HTTP Load Balancers.
  * `load-balancer.hetzner.cloud/http-cookie-name` - specifies the cookie name when using  HTTP or HTTPS as protocol.
  * `load-balancer.hetzner.cloud/http-cookie-lifetime` - specifies the lifetime of the HTTP cookie.

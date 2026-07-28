@@ -67,7 +67,11 @@ func (l *loadBalancers) GetLoadBalancer(
 		}, true, nil
 	}
 
-	return &v1.LoadBalancerStatus{Ingress: lbIngressIPs(lb)}, true, nil
+	useProxy, err := serviceUsesProxyProtocol(service)
+	if err != nil {
+		return nil, false, fmt.Errorf("%s: %w", op, err)
+	}
+	return &v1.LoadBalancerStatus{Ingress: applyProxyIPMode(lbIngressIPs(lb), useProxy)}, true, nil
 }
 
 func (l *loadBalancers) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
@@ -203,7 +207,11 @@ func (l *loadBalancers) EnsureLoadBalancer(
 		}
 	}
 
-	return &v1.LoadBalancerStatus{Ingress: ingress}, nil
+	useProxy, err := serviceUsesProxyProtocol(svc)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &v1.LoadBalancerStatus{Ingress: applyProxyIPMode(ingress, useProxy)}, nil
 }
 
 func (l *loadBalancers) getDisablePrivateIngress(svc *v1.Service) (bool, error) {
@@ -335,6 +343,29 @@ func lbPublicIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
 
 func lbIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
 	return lbPublicIngressIPs(lb)
+}
+
+func serviceUsesProxyProtocol(svc *v1.Service) (bool, error) {
+	v, err := annotation.LBSvcProxyProtocol.BoolFromService(svc)
+	if errors.Is(err, annotation.ErrNotSet) {
+		return false, nil
+	}
+	return v, err
+}
+
+// applyProxyIPMode sets ipMode=Proxy on IP ingress entries when Proxy Protocol
+// is enabled. Hostname-only entries are left unchanged (ipMode requires ip).
+func applyProxyIPMode(ingress []v1.LoadBalancerIngress, useProxy bool) []v1.LoadBalancerIngress {
+	if !useProxy {
+		return ingress
+	}
+	mode := v1.LoadBalancerIPModeProxy
+	for i := range ingress {
+		if ingress[i].IP != "" {
+			ingress[i].IPMode = &mode
+		}
+	}
+	return ingress
 }
 
 func joinNonEmpty(sep string, parts ...string) string {

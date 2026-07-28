@@ -160,8 +160,16 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.36.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.35.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.34.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.14 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.31.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
@@ -206,7 +214,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
@@ -270,7 +278,7 @@ stringData:
 
 Для деплоя с исключением предусмотрен отдельный файл: 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy-exclude.yaml
 ```
 
 # Переменные среды
@@ -385,7 +393,7 @@ kube-worker121-1 - облачный сервер, 111.233.1.99 - dedicated се�
  * `load-balancer.hetzner.cloud/type` (умолчание: `lb11`) - тип балансировщика, возможные значения: `lb11`, `lb21`, `lb31`
  * `load-balancer.hetzner.cloud/location` - локация, возможные значения: `fsn1`, `ngb1`, `hel1`. Взаимоисключающая с `load-balancer.hetzner.cloud/network-zone`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_LOCATION`. Смена локции требует пересоздание службы и смену ип адреса.
  * `load-balancer.hetzner.cloud/network-zone` - зона, возможные значения: `eu-central`. Взаимоисключающая с `load-balancer.hetzner.cloud/location`. Можно задать умолчание с помощью переменной среды `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`
- * `load-balancer.hetzner.cloud/uses-proxyprotocol` (умолчание `false`) - включить proxy protocol. Требует поддержку со стороны приложения
+ * `load-balancer.hetzner.cloud/uses-proxyprotocol` (умолчание `false`) - включить proxy protocol. Требует поддержку со стороны приложения. При включении выставляет `service.status.loadBalancer.ingress[].ipMode` в `Proxy` для IP-записей, чтобы kube-proxy не шунтировал трафик мимо балансировщика.
  * `load-balancer.hetzner.cloud/http-sticky-sessions` - включить sticky-sessions с привязкой к куке
  * `load-balancer.hetzner.cloud/http-cookie-name` - имя куки при http/https балансере с включенным sticky-sessions
  * `load-balancer.hetzner.cloud/http-cookie-lifetime` - время жизни куки при http/https балансере с включенным sticky-sessions
