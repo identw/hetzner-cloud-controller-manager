@@ -1,5 +1,13 @@
 Changelog
 =========
+v0.0.16
+------
+Upgrade hcloud-go to v2 and adapt CCM for API changes.
+
+v0.0.15
+------
+Update k8s client-go to v0.34.x
+
 v0.0.14
 ------
 Fixed a bug with exclude servers

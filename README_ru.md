@@ -160,6 +160,8 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.34.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.34.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.14 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.31.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
@@ -204,7 +206,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
@@ -268,7 +270,7 @@ stringData:
 
 Для деплоя с исключением предусмотрен отдельный файл: 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy-exclude.yaml
 ```
 
 # Переменные среды
