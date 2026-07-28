@@ -1,4 +1,4 @@
-FROM docker.io/golang:1.24 AS builder
+FROM docker.io/golang:1.25 AS builder
 
 LABEL org.opencontainers.image.source=https://github.com/identw/hetzner-cloud-controller-manager
 WORKDIR /maschine-controller/src

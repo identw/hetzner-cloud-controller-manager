@@ -23,7 +23,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,9 +33,11 @@ import (
 
 func getServerByName(ctx context.Context, c commonClient, name string) (server *hcloud.Server, err error) {
 	// Find exclude servers
-	for _, s := range cloudConfig.ExcludeServers {
-		if exclude, _ := regexp.MatchString(s, name); exclude {
-			return hcops.ExcludeServer, nil
+	if cloudConfig != nil {
+		for _, s := range cloudConfig.ExcludeServers {
+			if exclude, _ := regexp.MatchString(s, name); exclude {
+				return hcops.ExcludeServer, nil
+			}
 		}
 	}
 
@@ -63,7 +65,7 @@ func getServerByName(ctx context.Context, c commonClient, name string) (server *
 	return
 }
 
-func getServerByID(ctx context.Context, c commonClient, id int) (server *hcloud.Server, err error) {
+func getServerByID(ctx context.Context, c commonClient, id int64) (server *hcloud.Server, err error) {
 	// Find exclude servers
 	if id == hcops.ExcludeServer.ID {
 		return hcops.ExcludeServer, nil
@@ -94,12 +96,13 @@ func hrobotGetServerByName(name string) (*hcloud.Server, error) {
 	for _, s := range hrobotServers {
 		if s.Name == name {
 			server := &hcloud.Server{
-				ID:         s.ID,
+				ID:         int64(s.ID),
 				Name:       s.Name,
 				PublicNet:  hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
 				ServerType: &hcloud.ServerType{Name: s.Type},
 				Status:     hcloud.ServerStatus("running"),
-				Datacenter: &hcloud.Datacenter{Location: &hcloud.Location{Name: s.Zone}, Name: s.Region},
+				Location:   &hcloud.Location{Name: s.Zone},
+				Labels:     map[string]string{hcops.RobotDatacenterLabel: s.Region},
 			}
 			return server, nil
 		}
@@ -108,16 +111,17 @@ func hrobotGetServerByName(name string) (*hcloud.Server, error) {
 	return nil, nil
 }
 
-func hrobotGetServerByID(id int) (*hcloud.Server, error) {
+func hrobotGetServerByID(id int64) (*hcloud.Server, error) {
 	for _, s := range hrobotServers {
-		if s.ID == id {
+		if int64(s.ID) == id {
 			server := &hcloud.Server{
-				ID:         s.ID,
+				ID:         int64(s.ID),
 				Name:       s.Name,
 				PublicNet:  hcloud.ServerPublicNet{IPv4: hcloud.ServerPublicNetIPv4{IP: s.IP}},
 				ServerType: &hcloud.ServerType{Name: s.Type},
 				Status:     hcloud.ServerStatus("running"),
-				Datacenter: &hcloud.Datacenter{Location: &hcloud.Location{Name: s.Zone}, Name: s.Region},
+				Location:   &hcloud.Location{Name: s.Zone},
+				Labels:     map[string]string{hcops.RobotDatacenterLabel: s.Region},
 			}
 			return server, nil
 		}
@@ -128,7 +132,7 @@ func hrobotGetServerByID(id int) (*hcloud.Server, error) {
 
 // Sync Labels from cloud node to k8s node
 func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
-	if !enableSyncLabels {
+	if !enableSyncLabels || k8sClient == nil {
 		return
 	}
 	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), server.Name, metav1.GetOptions{})
@@ -178,6 +182,9 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 }
 
 func addTypeLabel(k8sClient *kubernetes.Clientset, name string, typeNode string) {
+	if k8sClient == nil {
+		return
+	}
 	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), name, metav1.GetOptions{})
 	if err == nil {
 		for k, v := range hcops.TypeLabels[typeNode] {

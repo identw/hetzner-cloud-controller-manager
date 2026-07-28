@@ -1,0 +1,94 @@
+name: pr
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run unit tests
+        run: go test ./... -count=1
+      - name: Build
+        run: CGO_ENABLED=0 go build -o /dev/null .
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set image metadata
+        id: meta
+        env:
+          IMAGE: ${{ github.repository }}
+        run: |
+          image=$(echo -n "${IMAGE}" | tr 'A-Z' 'a-z')
+          pr="${{ github.event.pull_request.number }}"
+          sha=$(echo -n "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          tag="pr-${pr}"
+          sha_tag="pr-${pr}-${sha}"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${sha_tag}" >> "$GITHUB_OUTPUT"
+          echo "full_image=ghcr.io/${image}:${tag}" >> "$GITHUB_OUTPUT"
+          echo "full_sha_image=ghcr.io/${image}:${sha_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push PR image
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+        run: |
+          docker build \
+            -t "ghcr.io/${IMAGE}:${TAG}" \
+            -t "ghcr.io/${IMAGE}:${SHA_TAG}" \
+            .
+          docker push "ghcr.io/${IMAGE}:${TAG}"
+          docker push "ghcr.io/${IMAGE}:${SHA_TAG}"
+
+      - name: Comment image on PR
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: pr-image
+          message: |
+            ### PR image
+
+            Temporary image built from this pull request:
+
+            ```
+            ${{ steps.meta.outputs.full_image }}
+            ${{ steps.meta.outputs.full_sha_image }}
+            ```
+
+            Pull:
+
+            ```bash
+            docker pull ${{ steps.meta.outputs.full_image }}
+            ```
+
+            Tags are cleaned up automatically when the PR is closed.

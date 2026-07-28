@@ -27,9 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	hrobot "github.com/nl2go/hrobot-go"
+	hrobotmodels "github.com/nl2go/hrobot-go/models"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	cloudprovider "k8s.io/cloud-provider"
@@ -74,7 +75,7 @@ type cloud struct {
 	zones        cloudprovider.Zones
 	routes       cloudprovider.Routes
 	loadBalancer *loadBalancers
-	network      int
+	network      int64
 }
 
 type config struct {
@@ -92,29 +93,38 @@ type HrobotServer struct {
 
 var hrobotServers []HrobotServer
 
-func readHrobotServers(hrobot hrobot.RobotClient) {
+func mapHrobotServers(servers []hrobotmodels.Server) []HrobotServer {
+	hservers := make([]HrobotServer, 0, len(servers))
+	for _, s := range servers {
+		zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
+		hservers = append(hservers, HrobotServer{
+			ID:     s.ServerNumber,
+			Name:   s.ServerName,
+			Type:   s.Product,
+			Zone:   zone,
+			Region: strings.ToLower(s.Dc),
+			IP:     net.ParseIP(s.ServerIP),
+		})
+	}
+	return hservers
+}
+
+// syncHrobotCache fetches servers from Robot API and updates the in-memory cache.
+func syncHrobotCache(client hrobot.RobotClient) error {
+	servers, err := client.ServerGetList()
+	if err != nil {
+		return err
+	}
+	hrobotServers = mapHrobotServers(servers)
+	return nil
+}
+
+func readHrobotServers(client hrobot.RobotClient) {
 	go func() {
 		for {
-			servers, err := hrobot.ServerGetList()
-			if err != nil {
+			if err := syncHrobotCache(client); err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: get servers from hrobot: %v\n", err)
-				time.Sleep(time.Duration(hrobotPeriod) * time.Second)
-				continue
 			}
-			var hservers []HrobotServer
-			for _, s := range servers {
-				zone := strings.ToLower(strings.Split(s.Dc, "-")[0])
-				server := HrobotServer{
-					ID:     s.ServerNumber,
-					Name:   s.ServerName,
-					Type:   s.Product,
-					Zone:   zone,
-					Region: strings.ToLower(s.Dc),
-					IP:     net.ParseIP(s.ServerIP),
-				}
-				hservers = append(hservers, server)
-			}
-			hrobotServers = hservers
 			time.Sleep(time.Duration(hrobotPeriod) * time.Second)
 		}
 	}()
@@ -133,9 +143,11 @@ func newCloud(configFile io.Reader) (cloudprovider.Interface, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = json.Unmarshal(body, cfg)
-		if err != nil {
-			return nil, err
+		if len(body) > 0 {
+			err = json.Unmarshal(body, cfg)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -1,0 +1,66 @@
+name: pr-image-cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete temporary PR images from ghcr.io
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Package name matches docker push path: owner/repo (lowercased).
+          # GitHub Packages API encodes "/" as %2F.
+          pkg=$(echo -n "${OWNER}/${REPO}" | tr 'A-Z' 'a-z')
+          pkg_enc=${pkg//\//%2F}
+
+          list_path=""
+          delete_prefix=""
+          if gh api "orgs/${OWNER}/packages/container/${pkg_enc}" >/dev/null 2>&1; then
+            list_path="orgs/${OWNER}/packages/container/${pkg_enc}/versions"
+            delete_prefix="orgs/${OWNER}/packages/container/${pkg_enc}/versions"
+          elif gh api "users/${OWNER}/packages/container/${pkg_enc}" >/dev/null 2>&1; then
+            list_path="users/${OWNER}/packages/container/${pkg_enc}/versions"
+            delete_prefix="users/${OWNER}/packages/container/${pkg_enc}/versions"
+          else
+            echo "Package ghcr.io/${pkg} not found (nothing to clean)."
+            exit 0
+          fi
+
+          echo "Looking for tags matching pr-${PR} / pr-${PR}-* in ${pkg}"
+
+          ids=$(
+            gh api --paginate "${list_path}" \
+              --jq --arg pr "pr-${PR}" '
+                .[]
+                | select(
+                    ((.metadata.container.tags // [])
+                    | map(startswith($pr + "-") or . == $pr)
+                    | any)
+                  )
+                | .id
+              ' | sort -u
+          )
+
+          if [[ -z "${ids}" ]]; then
+            echo "No versions tagged pr-${PR}* — nothing to delete."
+            exit 0
+          fi
+
+          while IFS= read -r id; do
+            [[ -z "${id}" ]] && continue
+            echo "Deleting package version id=${id}"
+            gh api --method DELETE "${delete_prefix}/${id}"
+          done <<< "${ids}"

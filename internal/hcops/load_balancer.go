@@ -9,7 +9,7 @@ import (
 	"net"
 
 	"github.com/identw/hetzner-cloud-controller-manager/internal/annotation"
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -21,7 +21,7 @@ const LabelServiceUID = "hcloud-ccm/service-uid"
 // HCloudLoadBalancerClient defines the hcloud-go functions required by the
 // Load Balancer operations type.
 type HCloudLoadBalancerClient interface {
-	GetByID(ctx context.Context, id int) (*hcloud.LoadBalancer, *hcloud.Response, error)
+	GetByID(ctx context.Context, id int64) (*hcloud.LoadBalancer, *hcloud.Response, error)
 	GetByName(ctx context.Context, name string) (*hcloud.LoadBalancer, *hcloud.Response, error)
 
 	Create(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, *hcloud.Response, error)
@@ -68,7 +68,7 @@ type LoadBalancerOps struct {
 	NetworkClient HCloudNetworkClient
 	CertClient    HCloudCertificateClient
 	RetryDelay    time.Duration
-	NetworkID     int
+	NetworkID     int64
 	Defaults      LoadBalancerDefaults
 }
 
@@ -131,7 +131,7 @@ func (l *LoadBalancerOps) GetByName(ctx context.Context, name string) (*hcloud.L
 //
 // If no Load Balancer with id could be found, a wrapped ErrNotFound is
 // returned.
-func (l *LoadBalancerOps) GetByID(ctx context.Context, id int) (*hcloud.LoadBalancer, error) {
+func (l *LoadBalancerOps) GetByID(ctx context.Context, id int64) (*hcloud.LoadBalancer, error) {
 	const op = "hcops/LoadBalancerOps.GetByName"
 
 	lb, _, err := l.LBClient.GetByID(ctx, id)
@@ -492,16 +492,16 @@ func (l *LoadBalancerOps) ReconcileHCLBTargets(
 	var (
 		// Set of all K8S server IDs currently assigned as nodes to this
 		// cluster.
-		k8sNodeIDs   = make(map[int]bool)
-		k8sNodeNames = make(map[int]string)
-		k8sDedicNodes = make(map[int]string)
-		k8sDedicNodesByIP = make(map[string]int)
+		k8sNodeIDs        = make(map[int64]bool)
+		k8sNodeNames      = make(map[int64]string)
+		k8sDedicNodes     = make(map[int64]string)
+		k8sDedicNodesByIP = make(map[string]int64)
 
 		// Set of server IDs assigned as targets to the HC Load Balancer. Some
 		// of the entries may get deleted during reconcilement. In this case
 		// the hclbTargetIDs[id] is always false. If hclbTargetIDs[id] is true,
 		// the node with this server id is assigned to the K8S cluster.
-		hclbTargetIDs = make(map[int]bool)
+		hclbTargetIDs = make(map[int64]bool)
 
 		changed bool
 	)
@@ -539,7 +539,7 @@ func (l *LoadBalancerOps) ReconcileHCLBTargets(
 		if target.Type != hcloud.LoadBalancerTargetTypeServer && target.Type != hcloud.LoadBalancerTargetTypeIP {
 			continue
 		}
-		var id int
+		var id int64
 		if target.Type == hcloud.LoadBalancerTargetTypeServer {
 			id = target.Server.Server.ID
 		}
@@ -1079,7 +1079,7 @@ func (b *hclbServiceOptsBuilder) buildUpdateServiceOpts() (hcloud.LoadBalancerUp
 	return opts, nil
 }
 
-func lbAttached(lb *hcloud.LoadBalancer, nwID int) bool {
+func lbAttached(lb *hcloud.LoadBalancer, nwID int64) bool {
 	for _, nw := range lb.PrivateNet {
 		if nw.Network.ID == nwID {
 			return true
