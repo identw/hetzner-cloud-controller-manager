@@ -1,5 +1,10 @@
 Changelog
 =========
+v0.0.17
+------
+Set loadBalancer ingress ipMode=Proxy when Proxy Protocol is enabled.
+Bump k8s dependencies to v0.36.3 and Go to 1.26.
+
 v0.0.16
 ------
 Upgrade hcloud-go to v2 and adapt CCM for API changes.

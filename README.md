@@ -159,8 +159,16 @@ status:
 # Version matrix
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.36.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.35.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.34.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.16 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
+| 1.32.x          | v0.0.15 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.15/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.14 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.14/deploy/deploy.yaml      |
 | 1.32.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
 | 1.31.x          | v0.0.13 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.13/deploy/deploy.yaml      |
@@ -205,7 +213,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Deployment controller:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml
 ```
 
 Now adding new nodes to the cluster, run **kubelet** on them with the parameter: `--cloud-provider=external`. To do this, you can create a file: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` with the following contents:
@@ -267,7 +275,7 @@ It is very important to run kubelet on such servers WITHOUT the `--cloud-provide
 
 For deployment with exclude servers, a separate file is provided:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.16/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy-exclude.yaml
 ```
 
 # Evnironment variables
