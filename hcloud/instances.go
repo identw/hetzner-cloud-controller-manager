@@ -83,7 +83,9 @@ func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (
 	if err != nil {
 		return "", err
 	}
-	return server.ServerType.Name, nil
+	// Robot products (e.g. "Server Auction") may contain characters invalid for
+	// node.kubernetes.io/instance-type label values.
+	return normalizeK8sLabelValue(server.ServerType.Name), nil
 }
 
 func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID string) (string, error) {
@@ -96,7 +98,7 @@ func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID str
 	if err != nil {
 		return "", err
 	}
-	return server.ServerType.Name, nil
+	return normalizeK8sLabelValue(server.ServerType.Name), nil
 }
 
 func (i *instances) AddSSHKeyToAllInstances(ctx context.Context, user string, keyData []byte) error {

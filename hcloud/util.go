@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
@@ -130,6 +132,73 @@ func hrobotGetServerByID(id int64) (*hcloud.Server, error) {
 	return nil, nil
 }
 
+// isK8sLabelChar reports whether r is allowed in a Kubernetes label name/value
+// (alphanumeric ASCII, '-', '_' or '.').
+func isK8sLabelChar(r rune) bool {
+	return (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') ||
+		r == '-' || r == '_' || r == '.'
+}
+
+// normalizeK8sLabelPart replaces characters that are not valid in Kubernetes
+// label names/values with '-', trims leading/trailing separators and enforces
+// the maximum length.
+func normalizeK8sLabelPart(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if isK8sLabelChar(r) {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteByte('-')
+	}
+
+	out := strings.Trim(b.String(), "-_.")
+	if len(out) > validation.LabelValueMaxLength {
+		out = out[:validation.LabelValueMaxLength]
+		out = strings.TrimRight(out, "-_.")
+	}
+	return out
+}
+
+// normalizeK8sLabelValue makes a string a valid Kubernetes label value.
+// Invalid characters are replaced with '-', then leading/trailing separators
+// are trimmed. Empty result is valid (Kubernetes allows empty label values).
+func normalizeK8sLabelValue(value string) string {
+	return normalizeK8sLabelPart(value)
+}
+
+// normalizeK8sLabelKey makes a string a valid Kubernetes label key (qualified name).
+// If the key already validates, it is returned unchanged. Otherwise invalid
+// characters in the name part are replaced similarly to values.
+func normalizeK8sLabelKey(key string) string {
+	if len(validation.IsQualifiedName(key)) == 0 {
+		return key
+	}
+
+	prefix, name := "", key
+	if i := strings.LastIndex(key, "/"); i >= 0 {
+		prefix, name = key[:i], key[i+1:]
+	}
+
+	name = normalizeK8sLabelPart(name)
+	if name == "" {
+		return ""
+	}
+
+	if prefix != "" {
+		if len(validation.IsDNS1123Subdomain(prefix)) != 0 {
+			return ""
+		}
+		return prefix + "/" + name
+	}
+	return name
+}
+
 // Sync Labels from cloud node to k8s node
 func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 	if !enableSyncLabels || k8sClient == nil {
@@ -146,6 +215,22 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 		if _, ok := node.ObjectMeta.Annotations[annotation]; ok {
 			ccma = true
 		}
+
+		// Normalize Hetzner labels to valid Kubernetes label keys/values.
+		normalized := make(map[string]string, len(server.Labels))
+		for k, v := range server.Labels {
+			nk := normalizeK8sLabelKey(k)
+			if nk == "" {
+				klog.Warningf("skipping invalid label key %q from server %s", k, server.Name)
+				continue
+			}
+			nv := normalizeK8sLabelValue(v)
+			if nk != k || nv != v {
+				klog.Infof("normalized label %q=%q -> %q=%q for server %s", k, v, nk, nv, server.Name)
+			}
+			normalized[nk] = nv
+		}
+
 		// If the annotation exists, then we look for labels that have been removed from the server and
 		// remove them from the k8s node
 		if ccma {
@@ -155,20 +240,16 @@ func syncLabels(k8sClient *kubernetes.Clientset, server *hcloud.Server) {
 				klog.Errorf("Unmarshal error annotatios: %s, error: %s", annotation, err)
 			}
 			for k := range pl {
-				if _, ok := server.Labels[k]; !ok {
+				if _, ok := normalized[k]; !ok {
 					changed = true
 					delete(node.ObjectMeta.Labels, k)
 				}
 			}
 		}
-		sl, _ := json.Marshal(server.Labels)
+		sl, _ := json.Marshal(normalized)
 		node.ObjectMeta.Annotations[annotation] = string(sl)
 		// sync labels
-		for k, v := range server.Labels {
-			if _, ok := node.ObjectMeta.Labels[k]; !ok {
-				changed = true
-				node.ObjectMeta.Labels[k] = v
-			}
+		for k, v := range normalized {
 			if node.ObjectMeta.Labels[k] != v {
 				changed = true
 				node.ObjectMeta.Labels[k] = v
