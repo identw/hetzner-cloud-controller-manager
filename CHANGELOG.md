@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.0.18
+------
+Normalize K8s label values for Robot auction products and synced HCloud labels.
+
 v0.0.17
 ------
 Set loadBalancer ingress ipMode=Proxy when Proxy Protocol is enabled.

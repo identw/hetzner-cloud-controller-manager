@@ -160,6 +160,10 @@ status:
 # Cовместимость версий
 | Kubernetes    | cloud controller | Deployment File |
 | ------------- | -----:| ------------------------------------------------------------------------------------------------------:|
+| 1.36.x          | v0.0.18 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy.yaml      |
+| 1.35.x          | v0.0.18 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy.yaml      |
+| 1.34.x          | v0.0.18 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy.yaml      |
+| 1.33.x          | v0.0.18 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy.yaml      |
 | 1.36.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
 | 1.35.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
 | 1.34.x          | v0.0.17 | https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml      |
@@ -214,7 +218,7 @@ kubectl create secret generic hetzner-cloud-controller-manager --from-literal=to
 
 Деплой контроллера:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy.yaml
 ```
 
 Теперь добавляя новые узлы в кластер, запускайте на них **kubelet** c параметром: `--cloud-provider=external`. Для этого вы можете создать файл: `/etc/systemd/system/kubelet.service.d/20-external-cloud.conf` со следующим содержимым:
@@ -278,7 +282,7 @@ stringData:
 
 Для деплоя с исключением предусмотрен отдельный файл: 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.17/deploy/deploy-exclude.yaml
+kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controller-manager/v0.0.18/deploy/deploy-exclude.yaml
 ```
 
 # Переменные среды
