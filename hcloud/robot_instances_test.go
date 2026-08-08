@@ -148,6 +148,49 @@ func TestInstances_RobotFallbackByNameAndID(t *testing.T) {
 	}
 }
 
+func TestInstances_RobotInstanceTypeNormalized(t *testing.T) {
+	origServers := hrobotServers
+	origConfig := cloudConfig
+	t.Cleanup(func() {
+		hrobotServers = origServers
+		cloudConfig = origConfig
+	})
+	cloudConfig = &config{}
+	hrobotServers = []HrobotServer{{
+		ID:     10423,
+		Name:   "kube-worker104-23",
+		Type:   "Server Auction",
+		Zone:   "fsn1",
+		Region: "fsn1-dc14",
+		IP:     net.ParseIP("203.0.113.104"),
+	}}
+
+	env := newTestEnv()
+	defer env.Teardown()
+	env.Mux.HandleFunc("/servers", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(schema.ServerListResponse{Servers: nil})
+	})
+	env.Mux.HandleFunc("/servers/10423", handleNotFound)
+
+	instances := newInstances(commonClient{Hcloud: env.Client})
+
+	typ, err := instances.InstanceType(context.Background(), "kube-worker104-23")
+	if err != nil {
+		t.Fatalf("InstanceType: %v", err)
+	}
+	if typ != "Server-Auction" {
+		t.Fatalf("got type %q, want Server-Auction", typ)
+	}
+
+	typ, err = instances.InstanceTypeByProviderID(context.Background(), "hetzner://10423")
+	if err != nil {
+		t.Fatalf("InstanceTypeByProviderID: %v", err)
+	}
+	if typ != "Server-Auction" {
+		t.Fatalf("got type %q, want Server-Auction", typ)
+	}
+}
+
 func TestInstances_ExcludeServerByName(t *testing.T) {
 	origConfig := cloudConfig
 	t.Cleanup(func() { cloudConfig = origConfig })
