@@ -33,16 +33,26 @@
 # Примеры
 ```bash
 $ kubectl get node -L node.kubernetes.io/instance-type -L topology.kubernetes.io/region -L topology.kubernetes.io/zone -L node.hetzner.com/type
-NAME               STATUS   ROLES                  AGE     VERSION   INSTANCE-TYPE   REGION   ZONE       TYPE
-kube-master121-1   Ready    control-plane,master   25m     v1.31.10   cx31            hel1     hel1-dc2   cloud
-kube-worker121-1   Ready    <none>                 24m     v1.31.10   cx31            hel1     hel1-dc2   cloud
-kube-worker121-2   Ready    <none>                 9m18s   v1.31.10   AX41-NVMe       hel1     hel1-dc4   dedicated
-
+NAME               STATUS   ROLES           AGE     VERSION    INSTANCE-TYPE    REGION   ZONE        TYPE
+kube-master121-1   Ready    control-plane   40m     v1.34.10   cpx42            fsn1     fsn1-dc14   cloud
+kube-master121-2   Ready    control-plane   42m     v1.34.10   cx42             fsn1     fsn1-dc14   cloud
+kube-master121-3   Ready    control-plane   42m     v1.34.10   cx42             fsn1     fsn1-dc14   cloud
+kube-worker121-1   Ready    worker          42m     v1.34.10   AX41-NVMe        fsn1     fsn1-dc16   dedicated
+kube-worker121-2   Ready    worker          42m     v1.34.10   AX41-NVMe        fsn1     fsn1-dc17   dedicated
+kube-worker121-3   Ready    worker          42m     v1.34.10   AX42             fsn1     fsn1-dc1    dedicated
+kube-worker121-4   Ready    worker          43m     v1.34.10   AX102            fsn1     fsn1-dc12   dedicated
+kube-worker121-5   Ready    worker          45m     v1.34.10   Server-Auction   fsn1     fsn1-dc17   dedicated
+ 
 $ kubectl get node -o wide
-NAME               STATUS   ROLES                  AGE     VERSION   INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
-kube-master121-1   Ready    control-plane,master   25m     v1.31.10   <none>        95.131.108.198   Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
-kube-worker121-1   Ready    <none>                 25m     v1.31.10   <none>        95.131.234.167   Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
-kube-worker121-2   Ready    <none>                 9m40s   v1.31.10   <none>        111.233.1.99     Ubuntu 22.04.5 LTS   5.15.0-144-generic   containerd://1.7.25
+NAME               STATUS   ROLES              AGE     VERSION    INTERNAL-IP   EXTERNAL-IP       OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+kube-master121-1   Ready    control-plane      40m     v1.34.10   <none>        169.11.50.2       Ubuntu 24.04.4 LTS   6.8.0-94-generic    containerd://2.1.5
+kube-master121-2   Ready    control-plane      42m     v1.34.10   <none>        180.54.124.33     Ubuntu 24.04.4 LTS   6.8.0-94-generic    containerd://2.1.5
+kube-master121-3   Ready    control-plane      42m     v1.34.10   <none>        132.19.212.43     Ubuntu 24.04.4 LTS   6.8.0-94-generic    containerd://2.1.5
+kube-worker121-1   Ready    worker             42m     v1.34.10   <none>        19.121.174.3      Ubuntu 24.04.4 LTS   6.8.0-94-generic    containerd://2.1.5
+kube-worker121-2   Ready    worker             42m     v1.34.10   <none>        190.11.67.212     Ubuntu 24.04.4 LTS   6.8.0-136-generic   containerd://2.1.5
+kube-worker121-3   Ready    worker             42m     v1.34.10   <none>        12.65.120.41      Ubuntu 24.04.4 LTS   6.8.0-94-generic    containerd://2.1.5
+kube-worker121-4   Ready    worker             43m     v1.34.10   <none>        111.243.87.11     Ubuntu 24.04.4 LTS   6.8.0-134-generic   containerd://2.1.5
+kube-worker121-5   Ready    worker             45m     v1.34.10   <none>        124.56.165.123    Ubuntu 24.04.4 LTS   6.8.0-137-generic   containerd://2.1.5
 ```
 
 Dedicated server:
@@ -51,53 +61,52 @@ apiVersion: v1
 kind: Node
 metadata:
   annotations:
-    io.cilium.network.ipv4-cilium-host: 10.245.2.195
-    io.cilium.network.ipv4-health-ip: 10.245.2.15
-    io.cilium.network.ipv4-pod-cidr: 10.245.2.0/24
-    kubeadm.alpha.kubernetes.io/cri-socket: /run/containerd/containerd.sock
     node.alpha.kubernetes.io/ttl: "0"
     volumes.kubernetes.io/controller-managed-attach-detach: "true"
-  creationTimestamp: "2021-03-08T12:32:24Z"
+  creationTimestamp: "2024-12-09T15:11:13Z"
   labels:
     beta.kubernetes.io/arch: amd64
     beta.kubernetes.io/instance-type: AX41-NVMe # <-- server product
     beta.kubernetes.io/os: linux
-    failure-domain.beta.kubernetes.io/region: hel1 # <-- location
-    failure-domain.beta.kubernetes.io/zone: hel1-dc4 # <-- datacenter
+    failure-domain.beta.kubernetes.io/region: fsn1 # <-- location
+    failure-domain.beta.kubernetes.io/zone: fsn1-dc16 # <-- datacenter
+    instance.hetzner.cloud/is-root-server: "true" # <-- true for robot nodes, false for cloud nodes
+    instance.hetzner.cloud/provided-by: robot # <-- hetzner node type (cloud or dedicated)
     kubernetes.io/arch: amd64
-    kubernetes.io/hostname: kube-worker121-2
+    kubernetes.io/hostname: kube-worker121-1
     kubernetes.io/os: linux
+    node-role.kubernetes.io/worker: ""
     node.hetzner.com/type: dedicated # <-- hetzner node type (cloud or dedicated)
     node.kubernetes.io/instance-type: AX41-NVMe # <-- server product
-    topology.kubernetes.io/region: hel1 # <-- location
-    topology.kubernetes.io/zone: hel1-dc4 # <-- datacenter
-  name: kube-worker121-2
-  resourceVersion: "3930"
-  uid: 19a6c528-ac02-4f42-bb19-ee701f43ca6d
+    topology.kubernetes.io/region: fsn1 # <-- location
+    topology.kubernetes.io/zone: fsn1-dc16 # <-- datacenter
+  name: kube-worker121-1
+  resourceVersion: "2411448560"
+  uid: 84a33cd7-a19a-45fa-f3bb-ad8769d0aea1
 spec:
-  podCIDR: 10.245.2.0/24
+  podCIDR: 10.246.2.0/24
   podCIDRs:
-  - 10.245.2.0/24
-  providerID: hetzner://1281541 # <-- Server ID
+  - 10.246.2.0/24
+  providerID: hetzner://12354513
 status:
   addresses:
-  - address: kube-worker121-2
+  - address: kube-worker121-1
     type: Hostname
-  - address: 111.233.1.99 # <-- public ipv4
+  - address: 19.121.174.3
     type: ExternalIP
   allocatable:
-    cpu: "12"
-    ephemeral-storage: "450673989296"
+    cpu: 11700m
+    ephemeral-storage: "450606041571"
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 65776840Ki
+    memory: 64335776Ki
     pods: "110"
   capacity:
     cpu: "12"
-    ephemeral-storage: 489012576Ki
+    ephemeral-storage: 488938848Ki
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 65879240Ki
+    memory: 65748896Ki
     pods: "110"
 ```
 
@@ -107,53 +116,60 @@ apiVersion: v1
 kind: Node
 metadata:
   annotations:
-    io.cilium.network.ipv4-cilium-host: 10.245.1.93
-    io.cilium.network.ipv4-health-ip: 10.245.1.141
-    io.cilium.network.ipv4-pod-cidr: 10.245.1.0/24
-    kubeadm.alpha.kubernetes.io/cri-socket: /run/containerd/containerd.sock
+    csi.volume.kubernetes.io/nodeid: '{"csi.hetzner.cloud":"25453151"}'
     node.alpha.kubernetes.io/ttl: "0"
     volumes.kubernetes.io/controller-managed-attach-detach: "true"
-  creationTimestamp: "2021-03-08T12:16:59Z"
+  creationTimestamp: "2026-02-03T14:43:44Z"
   labels:
     beta.kubernetes.io/arch: amd64
-    beta.kubernetes.io/instance-type: cx31 # <-- server type
+    beta.kubernetes.io/instance-type: cpx42 # <-- server type
     beta.kubernetes.io/os: linux
-    failure-domain.beta.kubernetes.io/region: hel1 # <-- location
-    failure-domain.beta.kubernetes.io/zone: hel1-dc2 # <-- datacenter
+    csi.hetzner.cloud/location: fsn1
+    failure-domain.beta.kubernetes.io/region: fsn1 # <-- location
+    failure-domain.beta.kubernetes.io/zone: fsn1-dc14 # <-- datacenter
+    instance.hetzner.cloud/is-root-server: "false" # <-- true for robot nodes, false for cloud nodes
+    instance.hetzner.cloud/provided-by: cloud # <-- hetzner node type (cloud or dedicated)
     kubernetes.io/arch: amd64
-    kubernetes.io/hostname: kube-worker121-1
+    kubernetes.io/hostname: kube-master121-1
     kubernetes.io/os: linux
+    node-role.kubernetes.io/control-plane: ""
     node.hetzner.com/type: cloud # <-- hetzner node type (cloud or dedicated)
-    node.kubernetes.io/instance-type: cx31 # <-- server type
-    topology.kubernetes.io/region: hel1 # <-- location
-    topology.kubernetes.io/zone: hel1-dc2 # <-- datacenter
-  name: kube-worker121-1
-  resourceVersion: "4449"
-  uid: f873c208-6403-4ed5-a030-ca92a8a0d48c
+    node.kubernetes.io/exclude-from-external-load-balancers: ""
+    node.kubernetes.io/instance-type: cpx42 # <-- server type
+    topology.kubernetes.io/region: fsn1 # <-- location
+    topology.kubernetes.io/zone: fsn1-dc14 # <-- datacenter
+  name: kube-master121-1
+  resourceVersion: "2411446767"
+  uid: a0b125cd-6e51-41a6-97a2-21c0ca8f45b5
 spec:
-  podCIDR: 10.245.1.0/24
+  podCIDR: 10.246.24.0/24
   podCIDRs:
-  - 10.245.1.0/24
-  providerID: hetzner://10193451 # <-- Server ID
+  - 10.246.24.0/24
+  providerID: hetzner://25453151
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
 status:
   addresses:
-  - address: kube-worker121-1
+  - address: kube-master121-1
     type: Hostname
-  - address: 95.131.234.167 # <-- public ipv4
+  - address: 169.11.50.2
+    type: ExternalIP
+  - address: 2a01:4b8:a11:45fa::1
     type: ExternalIP
   allocatable:
-    cpu: "2"
-    ephemeral-storage: "72456848060"
+    cpu: 7700m
+    ephemeral-storage: "290072136019"
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 7856260Ki
+    memory: 14569820Ki
     pods: "110"
   capacity:
-    cpu: "2"
-    ephemeral-storage: 78620712Ki
+    cpu: "8"
+    ephemeral-storage: 314748412Ki
     hugepages-1Gi: "0"
     hugepages-2Mi: "0"
-    memory: 7958660Ki
+    memory: 15982940Ki
     pods: "110"
 ```
 
