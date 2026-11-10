@@ -64,7 +64,7 @@ func TestCloudInterfaces(t *testing.T) {
 	c := &cloud{
 		instances:    newInstances(commonClient{}),
 		zones:        newZones(commonClient{}, "node"),
-		loadBalancer: newLoadBalancers(&mockLoadBalancerOps{}, nil, true, commonClient{}),
+		loadBalancer: newLoadBalancers(&mockLoadBalancerOps{}, nil, true, false, commonClient{}),
 	}
 
 	if _, ok := c.Instances(); !ok {
@@ -106,6 +106,28 @@ func TestNewCloud_RequiresEnv(t *testing.T) {
 	_, err := newCloud(nil)
 	if err == nil {
 		t.Fatal("expected error when required env is missing")
+	}
+}
+
+func TestLoadBalancerDefaultsFromEnv_DisableIPv6(t *testing.T) {
+	t.Setenv(hcloudLoadBalancersLocation, "")
+	t.Setenv(hcloudLoadBalancersNetworkZone, "")
+
+	t.Setenv(hcloudLoadBalancersDisableIPv6, "true")
+	_, _, disableIPv6, err := loadBalancerDefaultsFromEnv()
+	if err != nil || !disableIPv6 {
+		t.Fatalf("disableIPv6=%v err=%v", disableIPv6, err)
+	}
+
+	t.Setenv(hcloudLoadBalancersDisableIPv6, "invalid")
+	if _, _, _, err = loadBalancerDefaultsFromEnv(); err == nil {
+		t.Fatal("expected error for invalid value")
+	}
+
+	_ = os.Unsetenv(hcloudLoadBalancersDisableIPv6)
+	_, _, disableIPv6, err = loadBalancerDefaultsFromEnv()
+	if err != nil || disableIPv6 {
+		t.Fatalf("unset: disableIPv6=%v err=%v", disableIPv6, err)
 	}
 }
 

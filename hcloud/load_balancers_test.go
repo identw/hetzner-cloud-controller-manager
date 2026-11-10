@@ -3,7 +3,13 @@ package hcloud
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -11,6 +17,8 @@ import (
 	"github.com/identw/hetzner-cloud-controller-manager/internal/hcops"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type mockLoadBalancerOps struct {
@@ -115,7 +123,7 @@ func TestLoadBalancers_GetLoadBalancer(t *testing.T) {
 			return sampleLB(), nil
 		},
 	}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc", UID: "u1"}}
 
 	status, exists, err := l.GetLoadBalancer(context.Background(), "c", svc)
@@ -147,7 +155,7 @@ func TestLoadBalancers_GetLoadBalancer_ProxyProtocolSetsIPMode(t *testing.T) {
 			return sampleLB(), nil
 		},
 	}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Name: "svc",
 		UID:  "u1",
@@ -189,7 +197,7 @@ func TestLoadBalancers_EnsureLoadBalancer_ProxyProtocolSetsIPMode(t *testing.T) 
 	cloudConfig = &config{}
 
 	ops := &mockLoadBalancerOps{}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "svc",
@@ -244,7 +252,7 @@ func TestLoadBalancers_EnsureLoadBalancer_CreatesWhenMissing(t *testing.T) {
 	cloudConfig = &config{}
 
 	ops := &mockLoadBalancerOps{}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "svc", UID: "uid-1", Namespace: "default"},
 		Spec:       v1.ServiceSpec{Ports: []v1.ServicePort{{Port: 80}}},
@@ -268,7 +276,7 @@ func TestLoadBalancers_EnsureLoadBalancerDeleted(t *testing.T) {
 			return &hcloud.LoadBalancer{ID: 9, Protection: hcloud.LoadBalancerProtection{Delete: false}}, nil
 		},
 	}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	if err := l.EnsureLoadBalancerDeleted(context.Background(), "c", &v1.Service{}); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
@@ -281,7 +289,7 @@ func TestLoadBalancers_EnsureLoadBalancerDeleted(t *testing.T) {
 			return &hcloud.LoadBalancer{ID: 9, Protection: hcloud.LoadBalancerProtection{Delete: true}}, nil
 		},
 	}
-	l = newLoadBalancers(ops, nil, true, commonClient{})
+	l = newLoadBalancers(ops, nil, true, false, commonClient{})
 	if err := l.EnsureLoadBalancerDeleted(context.Background(), "c", &v1.Service{}); err != nil {
 		t.Fatalf("protected delete: %v", err)
 	}
@@ -294,7 +302,7 @@ func TestLoadBalancers_EnsureLoadBalancerDeleted(t *testing.T) {
 			return nil, hcops.ErrNotFound
 		},
 	}
-	l = newLoadBalancers(ops, nil, true, commonClient{})
+	l = newLoadBalancers(ops, nil, true, false, commonClient{})
 	if err := l.EnsureLoadBalancerDeleted(context.Background(), "c", &v1.Service{}); err != nil {
 		t.Fatalf("missing lb: %v", err)
 	}
@@ -306,7 +314,7 @@ func TestLoadBalancers_UpdateLoadBalancer_MissingIsNoop(t *testing.T) {
 	cloudConfig = &config{}
 
 	ops := &mockLoadBalancerOps{}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	err := l.UpdateLoadBalancer(context.Background(), "c", &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc"}}, nil)
 	if err != nil {
 		t.Fatalf("UpdateLoadBalancer: %v", err)
@@ -314,7 +322,7 @@ func TestLoadBalancers_UpdateLoadBalancer_MissingIsNoop(t *testing.T) {
 }
 
 func TestLoadBalancers_GetLoadBalancer_NotFound(t *testing.T) {
-	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, commonClient{})
+	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, false, commonClient{})
 	_, exists, err := l.GetLoadBalancer(context.Background(), "c", &v1.Service{})
 	if err != nil || exists {
 		t.Fatalf("exists=%v err=%v", exists, err)
@@ -322,7 +330,7 @@ func TestLoadBalancers_GetLoadBalancer_NotFound(t *testing.T) {
 }
 
 func TestLoadBalancers_GetLoadBalancerName(t *testing.T) {
-	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, commonClient{})
+	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, false, commonClient{})
 	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Name:        "svc",
 		UID:         "abcdef12-3456-7890-abcd-ef1234567890",
@@ -343,9 +351,145 @@ func TestEnsureLoadBalancer_PropagatesOpsError(t *testing.T) {
 			return nil, errors.New("api boom")
 		},
 	}
-	l := newLoadBalancers(ops, nil, true, commonClient{})
+	l := newLoadBalancers(ops, nil, true, false, commonClient{})
 	_, err := l.EnsureLoadBalancer(context.Background(), "c", &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc"}}, nil)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestLoadBalancers_GetLoadBalancer_IPv6Disabled(t *testing.T) {
+	ops := &mockLoadBalancerOps{
+		getByUIDFn: func(ctx context.Context, svc *v1.Service) (*hcloud.LoadBalancer, error) {
+			return sampleLB(), nil
+		},
+	}
+
+	tests := []struct {
+		name               string
+		annotations        map[string]string
+		disableIPv6Default bool
+		wantIPs            []string
+		wantErr            bool
+	}{
+		{
+			name:        "annotation disables IPv6",
+			annotations: map[string]string{string(annotation.LBIPv6Disabled): "true"},
+			wantIPs:     []string{"203.0.113.42"},
+		},
+		{
+			name:               "default disables IPv6",
+			disableIPv6Default: true,
+			wantIPs:            []string{"203.0.113.42"},
+		},
+		{
+			name:               "annotation overrides default",
+			annotations:        map[string]string{string(annotation.LBIPv6Disabled): "false"},
+			disableIPv6Default: true,
+			wantIPs:            []string{"203.0.113.42", "2001:db8::42"},
+		},
+		{
+			name:        "invalid annotation value",
+			annotations: map[string]string{string(annotation.LBIPv6Disabled): "maybe"},
+			wantErr:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := newLoadBalancers(ops, nil, true, tt.disableIPv6Default, commonClient{})
+			svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc", UID: "u1", Annotations: tt.annotations}}
+
+			status, exists, err := l.GetLoadBalancer(context.Background(), "c", svc)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil || !exists {
+				t.Fatalf("exists=%v err=%v", exists, err)
+			}
+			var gotIPs []string
+			for _, ing := range status.Ingress {
+				gotIPs = append(gotIPs, ing.IP)
+			}
+			if !slices.Equal(gotIPs, tt.wantIPs) {
+				t.Fatalf("ingress IPs = %v, want %v", gotIPs, tt.wantIPs)
+			}
+		})
+	}
+}
+
+func TestLoadBalancers_EnsureLoadBalancer_IPv6Disabled(t *testing.T) {
+	origConfig := cloudConfig
+	t.Cleanup(func() { cloudConfig = origConfig })
+	cloudConfig = &config{}
+
+	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, false, commonClient{})
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "svc",
+			UID:         "uid-1",
+			Namespace:   "default",
+			Annotations: map[string]string{string(annotation.LBIPv6Disabled): "true"},
+		},
+		Spec: v1.ServiceSpec{Ports: []v1.ServicePort{{Port: 80}}},
+	}
+
+	status, err := l.EnsureLoadBalancer(context.Background(), "cluster", svc, nil)
+	if err != nil {
+		t.Fatalf("EnsureLoadBalancer: %v", err)
+	}
+	if len(status.Ingress) != 1 || status.Ingress[0].IP != "203.0.113.10" {
+		t.Fatalf("expected only the IPv4 ingress, got %#v", status.Ingress)
+	}
+}
+
+func TestLoadBalancers_EnsureLoadBalancer_IPv6DisabledExternalDNSTarget(t *testing.T) {
+	origConfig := cloudConfig
+	t.Cleanup(func() { cloudConfig = origConfig })
+	cloudConfig = &config{}
+
+	var (
+		mu    sync.Mutex
+		patch string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		patch = string(body)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"apiVersion":"v1","kind":"Service","metadata":{"name":"svc","namespace":"default"}}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	k8sClient, err := kubernetes.NewForConfig(&rest.Config{Host: srv.URL})
+	if err != nil {
+		t.Fatalf("kubernetes client: %v", err)
+	}
+
+	l := newLoadBalancers(&mockLoadBalancerOps{}, nil, true, false, commonClient{K8sClient: k8sClient})
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			UID:       "uid-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				string(annotation.LBHostnameExternalDNS): "lb.example.com",
+				string(annotation.LBIPv6Disabled):        "true",
+			},
+		},
+		Spec: v1.ServiceSpec{Ports: []v1.ServicePort{{Port: 80}}},
+	}
+
+	if _, err := l.EnsureLoadBalancer(context.Background(), "cluster", svc, nil); err != nil {
+		t.Fatalf("EnsureLoadBalancer: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !strings.Contains(patch, `"external-dns.alpha.kubernetes.io/target":"203.0.113.10"`) {
+		t.Fatalf("expected IPv4-only external-dns target, got patch %q", patch)
 	}
 }

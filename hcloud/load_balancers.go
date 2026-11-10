@@ -35,16 +35,18 @@ type loadBalancers struct {
 	lbOps                        LoadBalancerOps
 	ac                           hcops.HCloudActionClient // Deprecated: should only be referenced by hcops types
 	disablePrivateIngressDefault bool
+	disableIPv6Default           bool
 	client                       commonClient
 	
 }
 
-func newLoadBalancers(lbOps LoadBalancerOps, ac hcops.HCloudActionClient, disablePrivateIngressDefault bool, client commonClient) *loadBalancers {
+func newLoadBalancers(lbOps LoadBalancerOps, ac hcops.HCloudActionClient, disablePrivateIngressDefault bool, disableIPv6Default bool, client commonClient) *loadBalancers {
 	return &loadBalancers{
 		lbOps:                        lbOps,
 		ac:                           ac,
 		client:                       client,
 		disablePrivateIngressDefault: disablePrivateIngressDefault,
+		disableIPv6Default:           disableIPv6Default,
 	}
 }
 
@@ -67,11 +69,16 @@ func (l *loadBalancers) GetLoadBalancer(
 		}, true, nil
 	}
 
+	disableIPv6, err := l.getDisableIPv6(service)
+	if err != nil {
+		return nil, false, fmt.Errorf("%s: %w", op, err)
+	}
+
 	useProxy, err := serviceUsesProxyProtocol(service)
 	if err != nil {
 		return nil, false, fmt.Errorf("%s: %w", op, err)
 	}
-	return &v1.LoadBalancerStatus{Ingress: applyProxyIPMode(lbIngressIPs(lb), useProxy)}, true, nil
+	return &v1.LoadBalancerStatus{Ingress: applyProxyIPMode(lbIngressIPs(lb, disableIPv6), useProxy)}, true, nil
 }
 
 func (l *loadBalancers) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
@@ -157,10 +164,15 @@ func (l *loadBalancers) EnsureLoadBalancer(
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	disableIPv6, err := l.getDisableIPv6(svc)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	if v, ok := annotation.LBHostnameExternalDNS.StringFromService(svc); ok {
 
 		ipAddresses := joinNonEmpty(",", ipString(lb.PublicNet.IPv4.IP), ipString(lb.PublicNet.IPv6.IP))
-		if _, ok := annotation.LBHostnameExternalDNSIpv4Only.StringFromService(svc); ok {
+		if _, ok := annotation.LBHostnameExternalDNSIpv4Only.StringFromService(svc); ok || disableIPv6 {
 			ipAddresses = ipString(lb.PublicNet.IPv4.IP)
 		}
 
@@ -192,7 +204,7 @@ func (l *loadBalancers) EnsureLoadBalancer(
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	if !disablePubNet {
-		ingress = append(ingress, lbPublicIngressIPs(lb)...)
+		ingress = append(ingress, lbPublicIngressIPs(lb, disableIPv6)...)
 	}
 
 	disablePrivIngress, err := l.getDisablePrivateIngress(svc)
@@ -223,6 +235,17 @@ func (l *loadBalancers) getDisablePrivateIngress(svc *v1.Service) (bool, error) 
 	}
 	if errors.Is(err, annotation.ErrNotSet) {
 		return l.disablePrivateIngressDefault, nil
+	}
+	return false, err
+}
+
+func (l *loadBalancers) getDisableIPv6(svc *v1.Service) (bool, error) {
+	disable, err := annotation.LBIPv6Disabled.BoolFromService(svc)
+	if err == nil {
+		return disable, nil
+	}
+	if errors.Is(err, annotation.ErrNotSet) {
+		return l.disableIPv6Default, nil
 	}
 	return false, err
 }
@@ -330,19 +353,21 @@ func ipString(ip net.IP) string {
 	return ip.String()
 }
 
-func lbPublicIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
+func lbPublicIngressIPs(lb *hcloud.LoadBalancer, disableIPv6 bool) []v1.LoadBalancerIngress {
 	var ingress []v1.LoadBalancerIngress
 	if s := ipString(lb.PublicNet.IPv4.IP); s != "" {
 		ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
 	}
-	if s := ipString(lb.PublicNet.IPv6.IP); s != "" {
-		ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
+	if !disableIPv6 {
+		if s := ipString(lb.PublicNet.IPv6.IP); s != "" {
+			ingress = append(ingress, v1.LoadBalancerIngress{IP: s})
+		}
 	}
 	return ingress
 }
 
-func lbIngressIPs(lb *hcloud.LoadBalancer) []v1.LoadBalancerIngress {
-	return lbPublicIngressIPs(lb)
+func lbIngressIPs(lb *hcloud.LoadBalancer, disableIPv6 bool) []v1.LoadBalancerIngress {
+	return lbPublicIngressIPs(lb, disableIPv6)
 }
 
 func serviceUsesProxyProtocol(svc *v1.Service) (bool, error) {

@@ -317,6 +317,7 @@ kubectl apply -f https://raw.githubusercontent.com/identw/hetzner-cloud-controll
  * `HCLOUD_LOAD_BALANCERS_ENABLED` - (умолчание: `true`) - отключает/включает поддержку балансировщиков нагрузки
  * `HCLOUD_LOAD_BALANCERS_LOCATION` (умолчания нет, взаимоисключающий с `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE`) - location по умолчанию, в котором будут создаваться балансировщики. Например: `fsn1`, `nbg1`, `hel1`
  * `HCLOUD_LOAD_BALANCERS_NETWORK_ZONE` (умолчания нет, взаимоисключающий с `HCLOUD_LOAD_BALANCERS_LOCATION` - network zone по умолчанию. Нарпимер: `eu-central`
+ * `HCLOUD_LOAD_BALANCERS_DISABLE_IPV6` (умолчание: `false`) - отключает использование IPv6 для всех балансировщиков по умолчанию. Для отдельного сервиса можно переопределить аннотацией `load-balancer.hetzner.cloud/ipv6-disabled`
 
  Переменные среды `HCLOUD_LOAD_BALANCERS_DISABLE_PRIVATE_INGRESS`, `HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP` из оригинального контроллера не имеют смысла, поскольку данный контроллер не поддерживает [Hetzner Cloud сети](https://community.hetzner.com/tutorials/hcloud-networks-basic). 
 
@@ -408,6 +409,7 @@ kube-worker121-1 - облачный сервер, 111.233.1.99 - dedicated се�
  * `load-balancer.hetzner.cloud/hostname` - 
  * `load-balancer.hetzner.cloud/external-dns-hostname` - Хостнейм балансировщика, который будет указан в статусе сервиса (service.status.loadBalancer.ingress). И добавил две аннотации для external-dns: `external-dns.alpha.kubernetes.io/target: <ipv4-address>,<ipv6-address>` and `external-dns.alpha.kubernetes.io/hostname: the value from load-balancer.hetzner.cloud/external-dns-hostname`. Это удобно для автоматического создания DNS записи (как в aws nlb).
  * `load-balancer.hetzner.cloud/external-dns-hostname-ipv4-only` - если установить  эту аннотацию не пустой, то в аннотации `external-dns.alpha.kubernetes.io/target` будут только ipv4 адрес
+ * `load-balancer.hetzner.cloud/ipv6-disabled` (умолчание: `false`) - отключает использование IPv6 для балансировщика: его IPv6 адрес не добавляется в `service.status.loadBalancer.ingress` и в аннотацию `external-dns.alpha.kubernetes.io/target`. Сам балансировщик в Hetzner Cloud при этом сохраняет IPv6 адрес. Полезно, если вы используете external-dns. Умолчание можно задать переменной среды `HCLOUD_LOAD_BALANCERS_DISABLE_IPV6`
  * `load-balancer.hetzner.cloud/protocol` (умолчание: `tcp`) - протокол, возможные значения: `tcp`, `http`, `https`
  * `load-balancer.hetzner.cloud/algorithm-type` (умолчание: `round_robin`) - алгоритм балансировки, возможные значения: `round_robin`, `least_connections`
  * `load-balancer.hetzner.cloud/type` (умолчание: `lb11`) - тип балансировщика, возможные значения: `lb11`, `lb21`, `lb31`
