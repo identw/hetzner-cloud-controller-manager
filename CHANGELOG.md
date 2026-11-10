@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.0.19
+------
+Support the load-balancer.hetzner.cloud/ipv6-disabled annotation so load balancer status omits IPv6.
+
 v0.0.18
 ------
 Normalize K8s label values for Robot auction products and synced HCloud labels.
